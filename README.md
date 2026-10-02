@@ -137,10 +137,10 @@ Projeto Interdisciplinar I — Ciência da Computação, Centro Universitário D
 | Integrante | Frente |
 |---|---|
 | Yasmin Lourdes e Silva | Dados, modelos de machine learning e identidade visual |
-| Christian Ottero Marques | Back-end e banco de dados |
+| Christian Ottero Marques | Scrum Master (gestão do processo) e testes |
 | Maria Eduarda Souza Maia | Interface e front-end |
-| André Vieira Prado | _a definir_ |
-| Gabriel Medeiros de Souza | _a definir_ |
+| André Vieira Prado | Desenvolvedor back-end e banco de dados |
+| Gabriel Medeiros de Souza | Product Owner (requisitos e backlog) |
 
 ## Referências
 
