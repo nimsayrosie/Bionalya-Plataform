@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Modelos</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="resultado.html">Resultado</a></li>
+      <li><a href="modelos.html" aria-current="page">Modelos</a></li>
+      <li><a href="login.html">Sair</a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Modelos</h1>
+    <p>Quatro modelos treinados sobre os mesmos 585 isolados e avaliados nos mesmos 143
+       separados para teste. A separação foi feita por cluster genético, para que
+       bactérias quase idênticas não aparecessem nos dois conjuntos.</p>
+  </div>
+
+  <!-- INTEGRAÇÃO ML: tabela vinda de GET /api/modelos -->
+  <section aria-labelledby="t-comparacao">
+    <h2 id="t-comparacao" class="so-leitor">Comparação de desempenho</h2>
+    <div class="rolagem">
+      <table>
+        <caption class="so-leitor">Desempenho dos quatro modelos no conjunto de teste</caption>
+        <thead>
+          <tr>
+            <th scope="col">Modelo</th>
+            <th scope="col">AUC</th>
+            <th scope="col">Sensibilidade</th>
+            <th scope="col">Especificidade</th>
+            <th scope="col">Falsos negativos</th>
+            <th scope="col">Situação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Redes Neurais</th>
+            <td class="dado">0,994</td>
+            <td class="dado">98,9%</td>
+            <td class="dado">98,2%</td>
+            <td class="dado">1</td>
+            <td><span class="etiqueta etiqueta-neutra">Em uso</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Random Forest</th>
+            <td class="dado">0,992</td>
+            <td class="dado">98,9%</td>
+            <td class="dado">96,4%</td>
+            <td class="dado">1</td>
+            <td><span class="etiqueta etiqueta-sensivel">Aprovado</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Regressão Logística</th>
+            <td class="dado">0,990</td>
+            <td class="dado">98,9%</td>
+            <td class="dado">96,4%</td>
+            <td class="dado">1</td>
+            <td><span class="etiqueta etiqueta-sensivel">Aprovado</span></td>
+          </tr>
+          <tr>
+            <th scope="row">XGBoost</th>
+            <td class="dado">0,981</td>
+            <td class="dado">98,9%</td>
+            <td class="dado">96,4%</td>
+            <td class="dado">1</td>
+            <td><span class="etiqueta etiqueta-sensivel">Aprovado</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="ajuda" style="margin-top:0.75rem;color:var(--roxo-suave)">
+      A meta definida no projeto, a partir da literatura, era AUC de 0,85.
+    </p>
+  </section>
+
+  <section class="secao" aria-labelledby="t-genes-modelo">
+    <h2 id="t-genes-modelo">Genes mais importantes para o modelo</h2>
+    <p style="color:var(--roxo-suave);margin-bottom:1rem">
+      Peso de cada gene na decisão, segundo o Random Forest.
+    </p>
+
+    <!-- INTEGRAÇÃO ML: array "importancias" de GET /api/modelos/{id}/features -->
+    <div class="cartao">
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">gyrA_S91F</span>
+        <span class="barra"><span style="width:100%"></span></span>
+        <span class="valor">36%</span>
+      </div>
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">gyrA_D95A</span>
+        <span class="barra"><span style="width:39%"></span></span>
+        <span class="valor">14%</span>
+      </div>
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">parC_S87R</span>
+        <span class="barra"><span style="width:27%"></span></span>
+        <span class="valor">10%</span>
+      </div>
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">ponA_L421P</span>
+        <span class="barra"><span style="width:14%"></span></span>
+        <span class="valor">5%</span>
+      </div>
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">parC_D86N</span>
+        <span class="barra"><span style="width:9%"></span></span>
+        <span class="valor">3%</span>
+      </div>
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">porB1b_A121D</span>
+        <span class="barra"><span style="width:7%"></span></span>
+        <span class="valor">3%</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao" aria-labelledby="t-validacao">
+    <h2 id="t-validacao">Validação cruzada</h2>
+    <p style="color:var(--roxo-suave);margin-bottom:1rem">
+      A divisão entre treino e teste foi repetida cinco vezes, sempre respeitando os
+      clusters genéticos. O resultado se manteve em todas.
+    </p>
+    <div class="grade grade-3">
+      <div class="cartao">
+        <span class="rotulo">Regressão Logística</span>
+        <span class="numero">0,989</span>
+        <span class="ajuda">± 0,012</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Random Forest</span>
+        <span class="numero">0,986</span>
+        <span class="ajuda">± 0,013</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">XGBoost</span>
+        <span class="numero">0,985</span>
+        <span class="ajuda">± 0,009</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-resistente" aria-hidden="true">Leia antes</span>
+    <div>
+      <strong>O ciprofloxacino é o caso mais fácil</strong>
+      <p>A resistência a ele depende de poucas mutações bem conhecidas em gyrA e parC,
+         o que explica o desempenho alto. Outros antibióticos têm mecanismos
+         multifatoriais e tendem a ser mais difíceis de prever.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+</body>
+</html>

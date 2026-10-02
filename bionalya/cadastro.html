@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Solicitar cadastro</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+</head>
+<body>
+
+<div class="barra-acesso">
+  <a href="inicio.html">← Sobre a plataforma</a>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</div>
+
+<main class="acesso acesso-largo">
+
+  <div class="acesso-marca">
+    <a href="inicio.html"><img src="assets/bionalya-logo.svg" alt=""></a>
+    <strong>Bionalya</strong>
+    <span>Previsão de resistência bacteriana para apoio à pesquisa</span>
+  </div>
+
+  <div class="cartao">
+    <h1 style="font-size:1.75rem">Solicitar cadastro</h1>
+    <p style="color:var(--roxo-suave);margin-top:0.5rem">
+      O acesso é liberado manualmente pela equipe. Campos marcados com
+      <span class="obrigatorio">*</span> são obrigatórios.
+    </p>
+
+    <!-- INTEGRAÇÃO: POST /api/cadastro — cria a solicitação com status "em análise" -->
+    <form action="acesso-pendente.html" method="get" style="margin-top:2rem">
+
+      <div class="campo">
+        <label for="nome">Nome completo <span class="obrigatorio">*</span></label>
+        <input type="text" id="nome" name="nome" autocomplete="name" required>
+      </div>
+
+      <div class="campo">
+        <label for="email">E-mail institucional <span class="obrigatorio">*</span></label>
+        <input type="email" id="email" name="email" autocomplete="email"
+               inputmode="email" required aria-describedby="ajuda-email"
+               placeholder="voce@universidade.br">
+        <span class="ajuda" id="ajuda-email">
+          Use o e-mail da instituição. É por ele que confirmamos seu vínculo.
+        </span>
+      </div>
+
+      <div class="campo">
+        <label for="instituicao">Instituição <span class="obrigatorio">*</span></label>
+        <input type="text" id="instituicao" name="instituicao" required
+               placeholder="Universidade, hospital ou laboratório">
+      </div>
+
+      <fieldset class="campo" style="border:0;padding:0">
+        <legend style="font-weight:700;font-size:var(--t-sm);padding:0;margin-bottom:0.5rem">
+          Seu vínculo <span class="obrigatorio">*</span>
+        </legend>
+        <div class="opcoes">
+          <label>
+            <input type="radio" name="vinculo" value="estudante" required>
+            <span><b>Estudante</b>Graduação ou pós em saúde, biologia ou computação</span>
+          </label>
+          <label>
+            <input type="radio" name="vinculo" value="pesquisador">
+            <span><b>Pesquisador</b>Vinculado a grupo, laboratório ou programa de pesquisa</span>
+          </label>
+          <label>
+            <input type="radio" name="vinculo" value="docente">
+            <span><b>Docente</b>Ensino e orientação em instituição de ensino</span>
+          </label>
+          <label>
+            <input type="radio" name="vinculo" value="laboratorio">
+            <span><b>Profissional de laboratório</b>Microbiologia clínica ou diagnóstico</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="campo">
+        <label for="finalidade">Como pretende usar a plataforma <span class="obrigatorio">*</span></label>
+        <textarea id="finalidade" name="finalidade" required
+                  aria-describedby="ajuda-finalidade"
+                  placeholder="Ex.: comparar modelos de previsão de resistência para um trabalho de conclusão de curso sobre Neisseria gonorrhoeae."></textarea>
+        <span class="ajuda" id="ajuda-finalidade">
+          Duas ou três linhas bastam. É o que a equipe lê para liberar o acesso.
+        </span>
+      </div>
+
+      <div class="campo">
+        <label for="senha">Crie uma senha <span class="obrigatorio">*</span></label>
+        <input type="password" id="senha" name="senha" autocomplete="new-password"
+               required minlength="8" aria-describedby="ajuda-senha">
+        <span class="ajuda" id="ajuda-senha">No mínimo 8 caracteres.</span>
+      </div>
+
+      <div class="aceite">
+        <input type="checkbox" id="termos" name="termos" required>
+        <label for="termos">
+          Declaro que as informações são verdadeiras e que entendo que a Bionalya é um
+          <strong>protótipo de pesquisa sem validação clínica</strong>, cujos resultados
+          não podem ser usados como diagnóstico nem como base exclusiva para decisão
+          sobre tratamento de pacientes. <span class="obrigatorio">*</span>
+        </label>
+      </div>
+
+      <button class="botao" type="submit" style="width:100%;margin-top:1.5rem">
+        Enviar solicitação
+      </button>
+    </form>
+  </div>
+
+  <p class="alternativa">
+    Já tem acesso? <a href="login.html">Entrar</a>
+  </p>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-neutra" aria-hidden="true">Seus dados</span>
+    <div>
+      <strong>O que fazemos com o que você informa</strong>
+      <p>Nome, e-mail, instituição e vínculo são usados apenas para liberar e identificar
+         seu acesso. Não são compartilhados com terceiros e podem ser removidos a
+         qualquer momento mediante pedido.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+</body>
+</html>

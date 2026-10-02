@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Nova análise</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html" aria-current="page">Nova análise</a></li>
+      <li><a href="resultado.html">Resultado</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="login.html">Sair</a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Nova análise</h1>
+    <p>Informe o perfil genético do isolado. O modelo devolve a probabilidade de
+       resistência ao antibiótico escolhido.</p>
+  </div>
+
+  <!-- INTEGRAÇÃO ML: no envio, montar o corpo descrito em README-frontend.md
+       e chamar POST /api/prever. A resposta preenche resultado.html. -->
+  <form action="resultado.html" method="get">
+
+    <div class="grade grade-2">
+
+      <div class="cartao">
+        <h2>1. Alvo da previsão</h2>
+
+        <div class="campo" style="margin-top:1.5rem">
+          <label for="especie">Espécie bacteriana</label>
+          <select id="especie" name="especie">
+            <option value="neisseria_gonorrhoeae">Neisseria gonorrhoeae</option>
+          </select>
+          <span class="ajuda">Outras espécies entram quando houver antibiograma suficiente na base.</span>
+        </div>
+
+        <div class="campo">
+          <label for="antibiotico">Antibiótico</label>
+          <select id="antibiotico" name="antibiotico">
+            <option value="ciprofloxacin">Ciprofloxacino — 773 isolados</option>
+            <option value="ceftriaxone">Ceftriaxona — 794 isolados</option>
+            <option value="cefixime">Cefixima — 769 isolados</option>
+            <option value="tetracycline">Tetraciclina — 766 isolados</option>
+            <option value="azithromycin">Azitromicina — 716 isolados</option>
+          </select>
+        </div>
+
+        <div class="campo">
+          <label for="modelo">Modelo</label>
+          <select id="modelo" name="modelo">
+            <option value="rede_neural">Redes Neurais — AUC 0,994</option>
+            <option value="random_forest">Random Forest — AUC 0,992</option>
+            <option value="regressao_logistica">Regressão Logística — AUC 0,990</option>
+            <option value="xgboost">XGBoost — AUC 0,981</option>
+          </select>
+          <span class="ajuda">A Regressão Logística é a mais fácil de explicar gene a gene.</span>
+        </div>
+      </div>
+
+      <div class="cartao">
+        <h2>2. Perfil genético</h2>
+        <p class="ajuda" style="margin-top:0.5rem">
+          Marque os genes de resistência presentes no isolado. Os marcados com
+          <strong>·</strong> são alvos do ciprofloxacino.
+        </p>
+
+        <fieldset style="border:0;padding:0;margin:1.5rem 0 0">
+          <legend class="so-leitor">Genes de resistência presentes</legend>
+          <ul class="genes">
+            <li><label><input type="checkbox" name="gene" value="gyrA_S91F" checked><span>gyrA_S91F ·</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="gyrA_D95A"><span>gyrA_D95A ·</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="gyrA_D95G" checked><span>gyrA_D95G ·</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="gyrA_D95N"><span>gyrA_D95N ·</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="parC_S87R" checked><span>parC_S87R ·</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="parC_S87N"><span>parC_S87N ·</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="parC_D86N"><span>parC_D86N ·</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="penA_G542S"><span>penA_G542S</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="ponA_L421P" checked><span>ponA_L421P</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="porB1b_A121D"><span>porB1b_A121D</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="mtrR" checked><span>mtrR</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="blaTEM-1"><span>blaTEM-1</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="tet(M)"><span>tet(M)</span></label></li>
+            <li><label><input type="checkbox" name="gene" value="23S_A2059G"><span>23S_A2059G</span></label></li>
+          </ul>
+        </fieldset>
+
+        <div class="campo" style="margin-top:2rem">
+          <label for="arquivo">Ou envie o registro do isolado</label>
+          <input type="file" id="arquivo" name="arquivo" accept=".csv,.tsv">
+          <span class="ajuda">Arquivo exportado do NCBI Pathogen Detection, com a coluna AMR genotypes.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <p style="margin-top:2rem">
+      <button class="botao" type="submit">Analisar isolado</button>
+      <a class="botao botao-claro" href="index.html">Cancelar</a>
+    </p>
+  </form>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+</body>
+</html>

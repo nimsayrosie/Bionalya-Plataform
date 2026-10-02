@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Previsão de resistência bacteriana</title>
+<meta name="description" content="A Bionalya prevê a resistência de uma bactéria a um antibiótico a partir dos genes encontrados no sequenciamento. Protótipo de pesquisa.">
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="inicio.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="#como-funciona">Como funciona</a></li>
+      <li><a href="#para-quem">Para quem é</a></li>
+      <li><a href="#limites">Limites</a></li>
+      <li><a href="login.html">Entrar</a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo">
+
+  <!-- ====================== HERÓI ====================== -->
+  <section class="heroi">
+    <div class="heroi-texto">
+      <span class="etiqueta etiqueta-neutra">Protótipo de pesquisa</span>
+      <h1>Resistência prevista a partir do genoma</h1>
+      <p>A Bionalya lê quais genes de resistência uma bactéria carrega e devolve
+         a probabilidade de ela resistir a um antibiótico — junto com o motivo
+         de ter respondido aquilo.</p>
+      <div class="heroi-acoes">
+        <a class="botao botao-grande" href="cadastro.html">Solicitar acesso</a>
+        <a class="botao botao-claro botao-grande" href="login.html">Já tenho conta</a>
+      </div>
+      <p class="heroi-nota">
+        O acesso é liberado manualmente para estudantes, pesquisadores, docentes e
+        profissionais de laboratório.
+      </p>
+    </div>
+
+    <div class="heroi-figura">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" class="logo-heroi" role="img" aria-labelledby="titulo-logo">
+<title id="titulo-logo">Bionalya: uma placa de cultura com uma rede de genes conectados</title>
+<defs>
+<radialGradient id="halo"><stop offset="0.55" stop-color="#E0626A" stop-opacity="0.35"></stop><stop offset="1" stop-color="#E0626A" stop-opacity="0"></stop></radialGradient>
+<linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E9F1F5"></stop><stop offset="1" stop-color="#D3E6EE"></stop></linearGradient>
+<radialGradient id="agar" cx="0.5" cy="0.45" r="0.6"><stop offset="0" stop-color="#FBF8F9"></stop><stop offset="1" stop-color="#F4EDF1"></stop></radialGradient>
+</defs>
+<path d="M56 575 V680 A571 420 0 0 0 1198 680 V575 Z" fill="url(#wall)" stroke="#24173F" stroke-width="14" stroke-linejoin="round"></path>
+<path d="M90 700 A537 380 0 0 0 1164 700" fill="none" stroke="#F1BCC4" stroke-width="5"></path>
+<ellipse cx="627" cy="575" rx="571" ry="420" fill="#EEF2F7" stroke="#24173F" stroke-width="14"></ellipse>
+<ellipse cx="627" cy="585" rx="530" ry="378" fill="url(#agar)" stroke="#24173F" stroke-width="9"></ellipse>
+<path d="M150 380 A560 410 0 0 1 430 205" fill="none" stroke="#33A3B3" stroke-width="9" stroke-linecap="round"></path>
+<path d="M150 470 A520 370 0 0 1 300 330" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity="0.9"></path>
+<path d="M1120 820 A540 390 0 0 1 1060 880" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"></path>
+<circle cx="895" cy="370" r="18" fill="#3E7A57"></circle><circle cx="940" cy="405" r="20" fill="#3E7A57"></circle><circle cx="305" cy="527" r="18" fill="#3E7A57"></circle><circle cx="272" cy="570" r="17" fill="#3E7A57"></circle><circle cx="278" cy="748" r="19" fill="#E0626A" opacity="0.85"></circle><circle cx="318" cy="782" r="19" fill="#E0626A" opacity="0.85"></circle><circle cx="270" cy="792" r="15" fill="#E0626A" opacity="0.85"></circle><circle cx="1003" cy="738" r="15" fill="#E0626A" opacity="0.85"></circle><circle cx="963" cy="770" r="16" fill="#E0626A" opacity="0.85"></circle><circle cx="987" cy="806" r="12" fill="#E0626A" opacity="0.85"></circle><circle class="halo-vivo" cx="582" cy="560" r="78" fill="url(#halo)"></circle>
+<g stroke="#24173F" stroke-width="7" stroke-linecap="round" opacity="0.85"><path d="M440 355 L570 325"></path><path d="M570 325 L668 332"></path><path d="M668 332 L765 382"></path><path d="M765 382 L828 457"></path><path d="M828 457 L832 547"></path><path d="M440 355 L433 485"></path><path d="M433 485 L433 612"></path><path d="M433 612 L433 782"></path><path d="M570 325 L550 392"></path><path d="M440 355 L550 392"></path><path d="M440 355 L500 448"></path><path d="M500 448 L433 485"></path><path d="M497 663 L433 612"></path><path d="M497 663 L530 758"></path><path d="M727 610 L832 547"></path><path d="M727 610 L848 668"></path><path d="M848 668 L873 775"></path><path d="M873 775 L815 753"></path><path d="M815 753 L728 808"></path><path d="M728 808 L572 822"></path><path d="M572 822 L530 758"></path><path d="M530 758 L433 782"></path><path d="M433 782 L495 873"></path><path d="M495 873 L650 890"></path><path d="M650 890 L797 858"></path><path d="M797 858 L873 775"></path><path d="M728 808 L797 858"></path><path d="M572 822 L495 873"></path><path d="M715 542 L828 457"></path><path d="M715 542 L727 610"></path></g>
+<g stroke="#C24F79" stroke-width="6" stroke-linecap="round"><path pathLength="1" class="aresta-viva" d="M582 560 L550 392"></path><path pathLength="1" class="aresta-viva" d="M582 560 L500 448"></path><path pathLength="1" class="aresta-viva" d="M582 560 L433 485"></path><path pathLength="1" class="aresta-viva" d="M582 560 L433 612"></path><path pathLength="1" class="aresta-viva" d="M582 560 L497 663"></path><path pathLength="1" class="aresta-viva" d="M582 560 L568 700"></path><path pathLength="1" class="aresta-viva" d="M582 560 L715 542"></path><path pathLength="1" class="aresta-viva" d="M582 560 L727 610"></path></g>
+<circle cx="440" cy="355" r="54" fill="#FBF8F9" opacity="0.6"></circle><circle cx="440" cy="355" r="50" fill="#2E1D55"></circle><circle cx="445" cy="361" r="41" fill="#000" opacity="0.10"></circle><circle cx="437.5" cy="352.5" r="40" fill="#2E1D55"></circle><ellipse cx="424" cy="337" rx="15" ry="11" transform="rotate(-30 424 337)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="570" cy="325" r="29" fill="#FBF8F9" opacity="0.6"></circle><circle cx="570" cy="325" r="25" fill="#7A64A8"></circle><circle cx="572.5" cy="328" r="20.5" fill="#000" opacity="0.10"></circle><circle cx="568.75" cy="323.75" r="20" fill="#7A64A8"></circle><ellipse cx="562" cy="316" rx="7.5" ry="5.5" transform="rotate(-30 562 316)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="668" cy="332" r="41" fill="#FBF8F9" opacity="0.6"></circle><circle cx="668" cy="332" r="37" fill="#33A3B3"></circle><circle cx="671.7" cy="336.44" r="30.34" fill="#000" opacity="0.10"></circle><circle cx="666.15" cy="330.15" r="29.6" fill="#33A3B3"></circle><ellipse cx="656.16" cy="318.68" rx="11.1" ry="8.14" transform="rotate(-30 656.16 318.68)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="550" cy="392" r="25" fill="#FBF8F9" opacity="0.6"></circle><circle cx="550" cy="392" r="21" fill="#2F7FB0"></circle><circle cx="552.1" cy="394.52" r="17.22" fill="#000" opacity="0.10"></circle><circle cx="548.95" cy="390.95" r="16.8" fill="#2F7FB0"></circle><ellipse cx="543.28" cy="384.44" rx="6.3" ry="4.62" transform="rotate(-30 543.28 384.44)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="500" cy="448" r="23" fill="#FBF8F9" opacity="0.6"></circle><circle cx="500" cy="448" r="19" fill="#33A3B3"></circle><circle cx="501.9" cy="450.28" r="15.58" fill="#000" opacity="0.10"></circle><circle cx="499.05" cy="447.05" r="15.2" fill="#33A3B3"></circle><ellipse cx="493.92" cy="441.16" rx="5.7" ry="4.18" transform="rotate(-30 493.92 441.16)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="433" cy="485" r="38" fill="#FBF8F9" opacity="0.6"></circle><circle cx="433" cy="485" r="34" fill="#7A64A8"></circle><circle cx="436.4" cy="489.08" r="27.88" fill="#000" opacity="0.10"></circle><circle cx="431.3" cy="483.3" r="27.2" fill="#7A64A8"></circle><ellipse cx="422.12" cy="472.76" rx="10.2" ry="7.48" transform="rotate(-30 422.12 472.76)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="765" cy="382" r="34" fill="#FBF8F9" opacity="0.6"></circle><circle cx="765" cy="382" r="30" fill="#7A64A8"></circle><circle cx="768" cy="385.6" r="24.6" fill="#000" opacity="0.10"></circle><circle cx="763.5" cy="380.5" r="24" fill="#7A64A8"></circle><ellipse cx="755.4" cy="371.2" rx="9" ry="6.6" transform="rotate(-30 755.4 371.2)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="828" cy="457" r="41" fill="#FBF8F9" opacity="0.6"></circle><circle cx="828" cy="457" r="37" fill="#33A3B3"></circle><circle cx="831.7" cy="461.44" r="30.34" fill="#000" opacity="0.10"></circle><circle cx="826.15" cy="455.15" r="29.6" fill="#33A3B3"></circle><ellipse cx="816.16" cy="443.68" rx="11.1" ry="8.14" transform="rotate(-30 816.16 443.68)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="832" cy="547" r="27" fill="#FBF8F9" opacity="0.6"></circle><circle cx="832" cy="547" r="23" fill="#2E1D55"></circle><circle cx="834.3" cy="549.76" r="18.86" fill="#000" opacity="0.10"></circle><circle cx="830.85" cy="545.85" r="18.4" fill="#2E1D55"></circle><ellipse cx="824.64" cy="538.72" rx="6.9" ry="5.06" transform="rotate(-30 824.64 538.72)" fill="#fff" opacity="0.6"></ellipse>
+<g class="no-central"><circle cx="582" cy="560" r="54" fill="#FBF8F9" opacity="0.6"></circle><circle cx="582" cy="560" r="50" fill="#E0626A"></circle><circle cx="587" cy="566" r="41" fill="#000" opacity="0.10"></circle><circle cx="579.5" cy="557.5" r="40" fill="#E0626A"></circle><ellipse cx="566" cy="542" rx="15" ry="11" transform="rotate(-30 566 542)" fill="#fff" opacity="0.6"></ellipse></g>
+<circle cx="715" cy="542" r="25" fill="#FBF8F9" opacity="0.6"></circle><circle cx="715" cy="542" r="21" fill="#A08DCB"></circle><circle cx="717.1" cy="544.52" r="17.22" fill="#000" opacity="0.10"></circle><circle cx="713.95" cy="540.95" r="16.8" fill="#A08DCB"></circle><ellipse cx="708.28" cy="534.44" rx="6.3" ry="4.62" transform="rotate(-30 708.28 534.44)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="727" cy="610" r="36" fill="#FBF8F9" opacity="0.6"></circle><circle cx="727" cy="610" r="32" fill="#7A64A8"></circle><circle cx="730.2" cy="613.84" r="26.24" fill="#000" opacity="0.10"></circle><circle cx="725.4" cy="608.4" r="25.6" fill="#7A64A8"></circle><ellipse cx="716.76" cy="598.48" rx="9.6" ry="7.04" transform="rotate(-30 716.76 598.48)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="433" cy="612" r="40" fill="#FBF8F9" opacity="0.6"></circle><circle cx="433" cy="612" r="36" fill="#2E1D55"></circle><circle cx="436.6" cy="616.32" r="29.52" fill="#000" opacity="0.10"></circle><circle cx="431.2" cy="610.2" r="28.8" fill="#2E1D55"></circle><ellipse cx="421.48" cy="599.04" rx="10.8" ry="7.92" transform="rotate(-30 421.48 599.04)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="497" cy="663" r="24" fill="#FBF8F9" opacity="0.6"></circle><circle cx="497" cy="663" r="20" fill="#33A3B3"></circle><circle cx="499" cy="665.4" r="16.4" fill="#000" opacity="0.10"></circle><circle cx="496" cy="662" r="16" fill="#33A3B3"></circle><ellipse cx="490.6" cy="655.8" rx="6" ry="4.4" transform="rotate(-30 490.6 655.8)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="568" cy="700" r="34" fill="#FBF8F9" opacity="0.6"></circle><circle cx="568" cy="700" r="30" fill="#7A64A8"></circle><circle cx="571" cy="703.6" r="24.6" fill="#000" opacity="0.10"></circle><circle cx="566.5" cy="698.5" r="24" fill="#7A64A8"></circle><ellipse cx="558.4" cy="689.2" rx="9" ry="6.6" transform="rotate(-30 558.4 689.2)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="848" cy="668" r="41" fill="#FBF8F9" opacity="0.6"></circle><circle cx="848" cy="668" r="37" fill="#33A3B3"></circle><circle cx="851.7" cy="672.44" r="30.34" fill="#000" opacity="0.10"></circle><circle cx="846.15" cy="666.15" r="29.6" fill="#33A3B3"></circle><ellipse cx="836.16" cy="654.68" rx="11.1" ry="8.14" transform="rotate(-30 836.16 654.68)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="530" cy="758" r="21" fill="#FBF8F9" opacity="0.6"></circle><circle cx="530" cy="758" r="17" fill="#33A3B3"></circle><circle cx="531.7" cy="760.04" r="13.94" fill="#000" opacity="0.10"></circle><circle cx="529.15" cy="757.15" r="13.6" fill="#33A3B3"></circle><ellipse cx="524.56" cy="751.88" rx="5.1" ry="3.74" transform="rotate(-30 524.56 751.88)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="433" cy="782" r="50" fill="#FBF8F9" opacity="0.6"></circle><circle cx="433" cy="782" r="46" fill="#2E1D55"></circle><circle cx="437.6" cy="787.52" r="37.72" fill="#000" opacity="0.10"></circle><circle cx="430.7" cy="779.7" r="36.8" fill="#2E1D55"></circle><ellipse cx="418.28" cy="765.44" rx="13.8" ry="10.12" transform="rotate(-30 418.28 765.44)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="815" cy="753" r="20" fill="#FBF8F9" opacity="0.6"></circle><circle cx="815" cy="753" r="16" fill="#A08DCB"></circle><circle cx="816.6" cy="754.92" r="13.12" fill="#000" opacity="0.10"></circle><circle cx="814.2" cy="752.2" r="12.8" fill="#A08DCB"></circle><ellipse cx="809.88" cy="747.24" rx="4.8" ry="3.52" transform="rotate(-30 809.88 747.24)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="873" cy="775" r="38" fill="#FBF8F9" opacity="0.6"></circle><circle cx="873" cy="775" r="34" fill="#2E1D55"></circle><circle cx="876.4" cy="779.08" r="27.88" fill="#000" opacity="0.10"></circle><circle cx="871.3" cy="773.3" r="27.2" fill="#2E1D55"></circle><ellipse cx="862.12" cy="762.76" rx="10.2" ry="7.48" transform="rotate(-30 862.12 762.76)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="572" cy="822" r="32" fill="#FBF8F9" opacity="0.6"></circle><circle cx="572" cy="822" r="28" fill="#33A3B3"></circle><circle cx="574.8" cy="825.36" r="22.96" fill="#000" opacity="0.10"></circle><circle cx="570.6" cy="820.6" r="22.4" fill="#33A3B3"></circle><ellipse cx="563.04" cy="811.92" rx="8.4" ry="6.16" transform="rotate(-30 563.04 811.92)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="728" cy="808" r="38" fill="#FBF8F9" opacity="0.6"></circle><circle cx="728" cy="808" r="34" fill="#33A3B3"></circle><circle cx="731.4" cy="812.08" r="27.88" fill="#000" opacity="0.10"></circle><circle cx="726.3" cy="806.3" r="27.2" fill="#33A3B3"></circle><ellipse cx="717.12" cy="795.76" rx="10.2" ry="7.48" transform="rotate(-30 717.12 795.76)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="797" cy="858" r="38" fill="#FBF8F9" opacity="0.6"></circle><circle cx="797" cy="858" r="34" fill="#33A3B3"></circle><circle cx="800.4" cy="862.08" r="27.88" fill="#000" opacity="0.10"></circle><circle cx="795.3" cy="856.3" r="27.2" fill="#33A3B3"></circle><ellipse cx="786.12" cy="845.76" rx="10.2" ry="7.48" transform="rotate(-30 786.12 845.76)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="495" cy="873" r="31" fill="#FBF8F9" opacity="0.6"></circle><circle cx="495" cy="873" r="27" fill="#7A64A8"></circle><circle cx="497.7" cy="876.24" r="22.14" fill="#000" opacity="0.10"></circle><circle cx="493.65" cy="871.65" r="21.6" fill="#7A64A8"></circle><ellipse cx="486.36" cy="863.28" rx="8.1" ry="5.94" transform="rotate(-30 486.36 863.28)" fill="#fff" opacity="0.6"></ellipse>
+<circle cx="650" cy="890" r="38" fill="#FBF8F9" opacity="0.6"></circle><circle cx="650" cy="890" r="34" fill="#2E1D55"></circle><circle cx="653.4" cy="894.08" r="27.88" fill="#000" opacity="0.10"></circle><circle cx="648.3" cy="888.3" r="27.2" fill="#2E1D55"></circle><ellipse cx="639.12" cy="877.76" rx="10.2" ry="7.48" transform="rotate(-30 639.12 877.76)" fill="#fff" opacity="0.6"></ellipse>
+</svg>
+    </div>
+  </section>
+
+  <!-- ====================== NÚMEROS ====================== -->
+  <section class="faixa" aria-labelledby="t-numeros">
+    <div class="faixa-conteudo">
+      <h2 id="t-numeros" class="faixa-titulo">Por que isso importa</h2>
+      <p class="faixa-sub">
+        Quando uma bactéria resiste ao antibiótico escolhido, o tratamento certo só
+        começa depois que o laboratório devolve o antibiograma. Esse intervalo custa caro.
+      </p>
+      <div class="destaques">
+        <div class="destaque">
+          <span class="numero">4,7 mi</span>
+          <p>mortes associadas à resistência antimicrobiana em 2021, segundo a OMS</p>
+        </div>
+        <div class="destaque">
+          <span class="numero">24–72 h</span>
+          <p>tempo habitual até sair o resultado de um antibiograma</p>
+        </div>
+        <div class="destaque">
+          <span class="numero">0,994</span>
+          <p>AUC do melhor modelo da Bionalya no conjunto de teste</p>
+        </div>
+        <div class="destaque">
+          <span class="numero">58</span>
+          <p>genes usados como variáveis pelo modelo em uso</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== COMO FUNCIONA ====================== -->
+  <section id="como-funciona" class="faixa-conteudo" style="padding-block:var(--esp-6)"
+           aria-labelledby="t-como">
+    <h2 id="t-como" class="faixa-titulo">Como funciona</h2>
+    <p class="faixa-sub">
+      Quatro passos, do arquivo bruto do sequenciamento até a previsão explicada.
+    </p>
+
+    <ol class="passos" style="list-style:none;margin:0;padding:0">
+      <li class="passo">
+        <span class="passo-numero" aria-hidden="true">1</span>
+        <h3>Entra o isolado</h3>
+        <p>Você informa quais genes de resistência apareceram no sequenciamento, ou envia
+           o registro exportado do <strong>NCBI Pathogen Detection</strong>.</p>
+      </li>
+      <li class="passo">
+        <span class="passo-numero" aria-hidden="true">2</span>
+        <h3>Vira tabela</h3>
+        <p>Cada gene conhecido vira uma coluna: <code>1</code> se está presente,
+           <code>0</code> se não está. É nesse formato que o modelo consegue ler a bactéria.</p>
+      </li>
+      <li class="passo">
+        <span class="passo-numero" aria-hidden="true">3</span>
+        <h3>O modelo decide</h3>
+        <p>Quatro modelos aprenderam com 585 isolados já testados em laboratório. Treino e
+           teste foram separados por cluster genético, para o modelo não decorar bactérias
+           quase idênticas.</p>
+      </li>
+      <li class="passo">
+        <span class="passo-numero" aria-hidden="true">4</span>
+        <h3>Sai a previsão</h3>
+        <p>Probabilidade de resistência, o limiar usado e o peso de cada gene na decisão.
+           Nada de caixa-preta: dá para conferir gene a gene.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ====================== PARA QUEM É ====================== -->
+  <section id="para-quem" class="faixa" aria-labelledby="t-publico">
+    <div class="faixa-conteudo">
+      <h2 id="t-publico" class="faixa-titulo">Para quem é</h2>
+      <p class="faixa-sub">
+        O cadastro não é aberto. Cada solicitação é conferida pela equipe antes de liberar.
+      </p>
+      <div class="publico">
+        <div class="publico-item">
+          <span class="publico-marca" aria-hidden="true"></span>
+          <div>
+            <h3>Estudantes</h3>
+            <p>Graduação ou pós em saúde, biologia ou computação, usando a plataforma em
+               trabalhos e projetos.</p>
+          </div>
+        </div>
+        <div class="publico-item">
+          <span class="publico-marca" aria-hidden="true"></span>
+          <div>
+            <h3>Pesquisadores</h3>
+            <p>Grupos e laboratórios que querem comparar modelos de previsão sobre a própria
+               coleção de isolados.</p>
+          </div>
+        </div>
+        <div class="publico-item">
+          <span class="publico-marca" aria-hidden="true"></span>
+          <div>
+            <h3>Docentes</h3>
+            <p>Aulas de microbiologia, bioinformática ou aprendizado de máquina, com um caso
+               real para mostrar em sala.</p>
+          </div>
+        </div>
+        <div class="publico-item">
+          <span class="publico-marca" aria-hidden="true"></span>
+          <div>
+            <h3>Profissionais de laboratório</h3>
+            <p>Microbiologia clínica e diagnóstico, para confrontar a previsão com o
+               antibiograma de verdade.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== LIMITES ====================== -->
+  <section id="limites" class="faixa-conteudo" style="padding-block:var(--esp-6)"
+           aria-labelledby="t-limites">
+    <h2 id="t-limites" class="faixa-titulo">O que a Bionalya ainda não faz</h2>
+    <p class="faixa-sub">
+      Dizer isso é parte do projeto. Um modelo com número alto e limite escondido é pior
+      do que um modelo honesto.
+    </p>
+
+    <div class="grade grade-3">
+      <div class="cartao">
+        <span class="rotulo">Escopo</span>
+        <p style="margin-top:0.5rem">Hoje só <em>Neisseria gonorrhoeae</em> e ciprofloxacino.
+           Outras espécies entram conforme a base tiver antibiograma suficiente.</p>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Dificuldade</span>
+        <p style="margin-top:0.5rem">O ciprofloxacino é o caso mais fácil: a resistência
+           depende de poucas mutações bem conhecidas em <code>gyrA</code> e <code>parC</code>.
+           Outros antibióticos são multifatoriais.</p>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Uso</span>
+        <p style="margin-top:0.5rem">Não é diagnóstico e não substitui o antibiograma.
+           O modelo pode errar, inclusive prevendo “sensível” para uma bactéria resistente.</p>
+      </div>
+    </div>
+
+    <div class="aviso">
+      <span class="etiqueta etiqueta-resistente" aria-hidden="true">Atenção</span>
+      <div>
+        <strong>Protótipo acadêmico, sem validação clínica</strong>
+        <p>A Bionalya é um trabalho de Projeto Interdisciplinar e não foi submetida a
+           validação clínica nem a aprovação regulatória. Nenhum resultado dela deve ser
+           usado como base para decisão sobre tratamento de pacientes.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== FECHO ====================== -->
+  <section class="fecho">
+    <h2>Quer testar com os seus isolados?</h2>
+    <p>Conte quem você é e como pretende usar. A equipe responde no e-mail institucional,
+       normalmente em até dois dias úteis.</p>
+    <div class="heroi-acoes">
+      <a class="botao botao-grande" href="cadastro.html">Solicitar acesso</a>
+      <a class="botao botao-claro botao-grande" href="index.html">Ver o painel de exemplo</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+</body>
+</html>

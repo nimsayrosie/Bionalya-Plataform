@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Resultado da análise</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="resultado.html" aria-current="page">Resultado</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="login.html">Sair</a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Resultado da análise</h1>
+    <p><em>Neisseria gonorrhoeae</em> · ciprofloxacino · modelo Redes Neurais ·
+       exemplo com dados de demonstração</p>
+  </div>
+
+  <!-- INTEGRAÇÃO ML: tudo nesta seção vem da resposta de POST /api/prever.
+       Os pontos de preenchimento estão marcados com data-campo. -->
+  <section class="cartao cartao-rosa" aria-labelledby="t-previsao">
+    <h2 id="t-previsao">Previsão</h2>
+
+    <p style="margin-top:1rem">
+      <span class="etiqueta etiqueta-resistente" data-campo="classe">Resistente</span>
+    </p>
+
+    <p style="margin-top:1.5rem">
+      <span class="rotulo">Probabilidade de resistência</span>
+      <span class="numero" style="font-size:2.5rem" data-campo="probabilidade">94,2%</span>
+    </p>
+
+    <div class="barra barra-rosa" style="max-width:34rem;margin-top:0.5rem"
+         role="img" aria-label="Probabilidade de resistência: 94,2 por cento">
+      <span data-campo="probabilidade_barra" style="width:94.2%"></span>
+    </div>
+
+    <p class="ajuda" style="margin-top:1rem;color:var(--roxo-suave)">
+      Limiar de decisão em 50%. Acima disso o isolado é classificado como resistente.
+    </p>
+  </section>
+
+  <section class="secao" aria-labelledby="t-genes">
+    <h2 id="t-genes">O que pesou nessa decisão</h2>
+    <p style="color:var(--roxo-suave);margin-bottom:1rem">
+      Contribuição de cada gene presente no isolado, segundo o modelo.
+    </p>
+
+    <!-- INTEGRAÇÃO ML: array "contribuicoes" da resposta -->
+    <div class="cartao">
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">gyrA_S91F</span>
+        <span class="barra barra-rosa"><span style="width:100%"></span></span>
+        <span class="valor">+3,89</span>
+      </div>
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">parC_S87R</span>
+        <span class="barra barra-rosa"><span style="width:50%"></span></span>
+        <span class="valor">+1,96</span>
+      </div>
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">gyrA_D95G</span>
+        <span class="barra barra-rosa"><span style="width:25%"></span></span>
+        <span class="valor">+0,98</span>
+      </div>
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">ponA_L421P</span>
+        <span class="barra barra-rosa"><span style="width:12%"></span></span>
+        <span class="valor">+0,47</span>
+      </div>
+      <div class="linha-metrica">
+        <span style="font-family:var(--fonte-dados)">mtrR</span>
+        <span class="barra barra-verde"><span style="width:8%"></span></span>
+        <span class="valor">−0,31</span>
+      </div>
+    </div>
+
+    <p class="ajuda" style="margin-top:1rem;color:var(--roxo-suave)">
+      Valores positivos empurram para resistente; negativos, para sensível.
+      <strong>gyrA</strong> e <strong>parC</strong> são as enzimas que o ciprofloxacino ataca,
+      e mutações nelas são o mecanismo conhecido de resistência a quinolonas.
+    </p>
+  </section>
+
+  <section class="secao" aria-labelledby="t-confianca">
+    <h2 id="t-confianca">Confiabilidade do modelo usado</h2>
+    <div class="grade grade-3">
+      <div class="cartao">
+        <span class="rotulo">AUC no teste</span>
+        <span class="numero" data-campo="auc">0,994</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Sensibilidade</span>
+        <span class="numero" data-campo="sensibilidade">98,9%</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Treinado com</span>
+        <span class="numero" data-campo="n_treino">585</span>
+        <span class="ajuda">isolados</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-resistente" aria-hidden="true">Atenção</span>
+    <div>
+      <strong>Protótipo de pesquisa, sem validação clínica</strong>
+      <p>Este resultado não é diagnóstico e não substitui o antibiograma. O modelo foi
+         treinado com 585 isolados de uma única espécie e pode errar, inclusive prevendo
+         “sensível” para uma bactéria resistente.</p>
+    </div>
+  </div>
+
+  <p style="margin-top:2rem">
+    <a class="botao" href="nova-analise.html">Analisar outro isolado</a>
+    <a class="botao botao-claro" href="modelos.html">Ver comparação dos modelos</a>
+  </p>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+</body>
+</html>

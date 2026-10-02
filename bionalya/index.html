@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Painel</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html" aria-current="page">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="resultado.html">Resultado</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="login.html">Sair</a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Painel</h1>
+    <p>Previsão de resistência bacteriana a antibióticos a partir do perfil genético do
+       isolado, para apoio à pesquisa.</p>
+  </div>
+
+  <!-- INTEGRAÇÃO ML: números vindos de GET /api/base/resumo -->
+  <section aria-labelledby="t-base">
+    <h2 id="t-base" class="so-leitor">Resumo da base carregada</h2>
+    <div class="grade grade-4">
+      <div class="cartao">
+        <span class="rotulo">Isolados na base</span>
+        <span class="numero" data-campo="total_isolados">72.503</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Com antibiograma</span>
+        <span class="numero" data-campo="com_ast">794</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Usáveis no treino</span>
+        <span class="numero" data-campo="usaveis">728</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Genes como features</span>
+        <span class="numero" data-campo="n_features">58</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao">
+    <div class="grade grade-2">
+
+      <div class="cartao cartao-rosa">
+        <h2>Analisar um isolado</h2>
+        <p>Informe quais genes de resistência o isolado carrega e receba a probabilidade
+           prevista para o antibiótico escolhido.</p>
+        <p style="margin-top:1.5rem"><a class="botao" href="nova-analise.html">Começar análise</a></p>
+      </div>
+
+      <div class="cartao">
+        <h2>Base em uso</h2>
+        <dl class="definicoes">
+          <div>
+            <dt>Fonte</dt>
+            <dd>NCBI Pathogen Detection</dd>
+          </div>
+          <div>
+            <dt>Espécie</dt>
+            <dd><em>Neisseria gonorrhoeae</em></dd>
+          </div>
+          <div>
+            <dt>Antibiótico-alvo</dt>
+            <dd>Ciprofloxacino</dd>
+          </div>
+          <div>
+            <dt>Modelo ativo</dt>
+            <dd>Redes Neurais</dd>
+          </div>
+        </dl>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="secao" aria-labelledby="t-antibioticos">
+    <h2 id="t-antibioticos">Antibióticos disponíveis nesta base</h2>
+    <p style="color:var(--roxo-suave);margin-bottom:1rem">
+      Número de isolados com resultado de laboratório para cada antibiótico.
+      Só é possível treinar um modelo onde existe esse resultado.
+    </p>
+
+    <!-- INTEGRAÇÃO ML: lista vinda de GET /api/base/antibioticos -->
+    <div class="cartao">
+      <div class="linha-metrica">
+        <span>Ceftriaxona</span>
+        <span class="barra"><span style="width:100%"></span></span>
+        <span class="valor">794</span>
+      </div>
+      <div class="linha-metrica">
+        <span>Ciprofloxacino</span>
+        <span class="barra"><span style="width:97%"></span></span>
+        <span class="valor">773</span>
+      </div>
+      <div class="linha-metrica">
+        <span>Cefixima</span>
+        <span class="barra"><span style="width:97%"></span></span>
+        <span class="valor">769</span>
+      </div>
+      <div class="linha-metrica">
+        <span>Tetraciclina</span>
+        <span class="barra"><span style="width:96%"></span></span>
+        <span class="valor">766</span>
+      </div>
+      <div class="linha-metrica">
+        <span>Azitromicina</span>
+        <span class="barra"><span style="width:90%"></span></span>
+        <span class="valor">716</span>
+      </div>
+      <div class="linha-metrica">
+        <span>Espectinomicina</span>
+        <span class="barra"><span style="width:90%"></span></span>
+        <span class="valor">714</span>
+      </div>
+      <div class="linha-metrica">
+        <span>Penicilina</span>
+        <span class="barra"><span style="width:65%"></span></span>
+        <span class="valor">513</span>
+      </div>
+      <div class="linha-metrica">
+        <span>Zoliflodacina</span>
+        <span class="barra"><span style="width:56%"></span></span>
+        <span class="valor">448</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-resistente" aria-hidden="true">Atenção</span>
+    <div>
+      <strong>Protótipo de pesquisa</strong>
+      <p>A Bionalya não é uma ferramenta validada clinicamente e não substitui o
+         antibiograma. Os resultados servem a estudo e comparação de modelos.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+</body>
+</html>
