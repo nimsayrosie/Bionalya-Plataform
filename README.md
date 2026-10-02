@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/banner-escuro.png">
-    <img src="docs/banner-claro.png" alt="Bionalya — previsão de resistência bacteriana a partir do genoma, com aprendizado de máquina" width="820">
+    <source media="(prefers-color-scheme: dark)" srcset="imagens/banner-escuro.png">
+    <img src="imagens/banner-claro.png" alt="Bionalya — previsão de resistência bacteriana a partir do genoma, com aprendizado de máquina" width="820">
   </picture>
 </p>
 
@@ -33,8 +33,8 @@ Este repositório tem as duas metades do projeto: o **pipeline de dados e os mod
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/fluxo-escuro.png">
-    <img src="docs/fluxo-claro.png" alt="Fluxo em quatro etapas: isolado sequenciado, matriz de presença e ausência de genes, treino separado por cluster genético, previsão explicada" width="900">
+    <source media="(prefers-color-scheme: dark)" srcset="imagens/fluxo-escuro.png">
+    <img src="imagens/fluxo-claro.png" alt="Fluxo em quatro etapas: isolado sequenciado, matriz de presença e ausência de genes, treino separado por cluster genético, previsão explicada" width="900">
   </picture>
 </p>
 
@@ -70,7 +70,7 @@ resistência a quinolonas. O modelo não inventou um atalho — ele encontrou o 
 
 | Modo claro | Modo escuro |
 |---|---|
-| <img src="docs/tela-claro.png" alt="Página inicial da Bionalya em modo claro" width="420"> | <img src="docs/tela-escuro.png" alt="Página inicial da Bionalya em modo escuro" width="420"> |
+| <img src="imagens/tela-claro.png" alt="Página inicial da Bionalya em modo claro" width="420"> | <img src="imagens/tela-escuro.png" alt="Página inicial da Bionalya em modo escuro" width="420"> |
 
 Oito telas em HTML e CSS puros, sem biblioteca e sem build — é só abrir
 `plataforma/inicio.html` no navegador. O único JavaScript são as ~45 linhas que fazem
@@ -92,7 +92,7 @@ plataforma/              Telas da Bionalya (HTML + CSS)
   login.html  cadastro.html  acesso-pendente.html
   index.html  nova-analise.html  resultado.html  modelos.html
   style.css  tema.js  assets/
-docs/                    Imagens deste README
+imagens/                 Imagens deste README
 ```
 
 ## Como rodar
