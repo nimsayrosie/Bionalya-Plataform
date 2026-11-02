@@ -30,6 +30,8 @@ STATUS = ("em_analise", "aprovado", "recusado")
 #   admin        + gerencia usuários e papéis
 PAPEIS = ("pesquisador", "equipe", "admin")
 NIVEL = {"pesquisador": 1, "equipe": 2, "admin": 3}
+# Situação de uma base enviada pela plataforma.
+SITUACOES_BASE = ("em_analise", "aprovada", "recusada")
 
 
 def pode(usuario, minimo: str) -> bool:
@@ -110,7 +112,12 @@ class Sessao(Base):
 
 
 class BaseDados(Base):
-    """Um CSV de isolados. Vem de fábrica ou alguém subiu pela plataforma."""
+    """Um CSV de isolados. Vem de fábrica ou alguém subiu pela plataforma.
+
+    Quem é da equipe sobe e a base já entra valendo. Quem é pesquisador manda
+    um **pedido**: a base fica só para ele até alguém da equipe aprovar. É a
+    mesma ideia do cadastro de usuário, que também passa por análise.
+    """
     __tablename__ = "bases"
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)   # slug
@@ -124,6 +131,19 @@ class BaseDados(Base):
     enviada_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # em_analise = só o dono e a equipe veem. aprovada = todo mundo vê.
+    # As bases que já existiam entram como aprovada na migração.
+    situacao: Mapped[str] = mapped_column(String(16), default="aprovada")
+    decidida_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    decidida_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    motivo_recusa: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Quem envia declara que pode usar aquele dado e que não há informação
+    # identificável de paciente ali. Guardamos a versão do texto aceito, não só
+    # um "sim": se o termo mudar, dá para saber o que a pessoa leu.
+    termo_aceito: Mapped[bool] = mapped_column(Boolean, default=True)
+    termo_versao: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
     def publico(self) -> dict:
         return {
             "id": self.id, "nome": self.nome, "especie": self.especie,
@@ -131,6 +151,11 @@ class BaseDados(Base):
             "n_isolados": self.n_isolados, "n_com_ast": self.n_com_ast,
             "enviada_em": self.enviada_em.isoformat() if self.enviada_em else None,
             "enviada_por": self.enviada_por, "observacao": self.observacao,
+            "situacao": self.situacao,
+            "decidida_em": self.decidida_em.isoformat() if self.decidida_em else None,
+            "decidida_por": self.decidida_por,
+            "motivo_recusa": self.motivo_recusa,
+            "termo_aceito": self.termo_aceito, "termo_versao": self.termo_versao,
         }
 
 

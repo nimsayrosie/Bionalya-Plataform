@@ -40,6 +40,21 @@ ESPECIE_PADRAO = "Neisseria gonorrhoeae"
 MAX_MB_BASE = 120
 MIN_LINHAS_BASE = 30
 
+# Quantas bases um pesquisador pode ter ao mesmo tempo, contando as que ainda
+# estão em análise. A equipe não tem limite. Sem isso, o disco acaba.
+MAX_BASES_POR_PESQUISADOR = 3
+
+# Termo que quem envia uma base precisa aceitar. A versão é guardada junto com
+# o aceite: se o texto mudar, dá para saber o que a pessoa leu de fato.
+TERMO_BASE_VERSAO = "2026-11"
+TERMO_BASE = (
+    "Declaro que tenho autorização para usar os dados deste arquivo, que ele "
+    "não contém informação que identifique pacientes (nome, documento, "
+    "prontuário, endereço ou data de nascimento) e que assumo a "
+    "responsabilidade pelo que envio. A Bionalya é um protótipo acadêmico sem "
+    "validação clínica."
+)
+
 # Nomes em português para o que vem em inglês do NCBI.
 NOMES_PT = {
     "ciprofloxacin": "Ciprofloxacino",

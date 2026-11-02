@@ -27,7 +27,7 @@
       <li><a href="nova-analise.html">Nova análise</a></li>
       <li><a href="modelos.html">Modelos</a></li>
       <li><a href="isolados.html" aria-current="page">Base</a></li>
-      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li><a href="bases.html">Bases</a></li>
       <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
       <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
       <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
@@ -274,7 +274,10 @@ document.addEventListener("DOMContentLoaded", function () {
     bases.forEach(function (b) {
       var o = document.createElement("option");
       o.value = b.id;
-      o.textContent = b.nome + (b.arquivo_presente ? "" : " (arquivo ausente)");
+      var situacao = b.situacao === "em_analise" ? " (seu pedido, em análise)"
+                   : b.situacao === "recusada" ? " (pedido recusado)"
+                   : b.arquivo_presente ? "" : " (arquivo ausente)";
+      o.textContent = b.nome + situacao;
       o.disabled = !b.arquivo_presente;
       sel.appendChild(o);
     });

@@ -187,8 +187,38 @@ def caminho_da_base(linha) -> Path:
     return pasta / linha.arquivo
 
 
-def carregar_base_por_id(db: Session, base_id: str | None):
+def dono_da_base(linha, u) -> bool:
+    return bool(u and linha.enviada_por
+                and linha.enviada_por.lower() == u.email.lower())
+
+
+def base_visivel(linha, u) -> bool:
+    """Base aprovada todo mundo vê. Em análise ou recusada, só o dono e a equipe.
+
+    Devolver 404 em vez de 403 para base alheia é de propósito: quem não pode
+    ver uma base também não precisa saber que ela existe.
+    """
+    if linha.situacao == "aprovada":
+        return True
+    return banco.pode(u, "equipe") or dono_da_base(linha, u)
+
+
+def exigir_base(db: Session, base_id: str | None, u) -> banco.BaseDados:
     linha = db.get(banco.BaseDados, base_id or config.BASE_PADRAO)
+    if linha is None or not base_visivel(linha, u):
+        raise HTTPException(404, "Base não encontrada.")
+    return linha
+
+
+def exigir_antibiotico_visivel(db: Session, chave: str, u) -> None:
+    """A chave de um antibiótico carrega a base dele; vale a mesma regra."""
+    base_id, _ = modelos.partir(chave)
+    exigir_base(db, base_id, u)
+
+
+def carregar_base_por_id(db: Session, base_id: str | None, u=None):
+    linha = (exigir_base(db, base_id, u) if u is not None
+             else db.get(banco.BaseDados, base_id or config.BASE_PADRAO))
     if linha is None:
         raise HTTPException(404, "Base não encontrada.")
     caminho = caminho_da_base(linha)
@@ -575,13 +605,13 @@ def definir_padrao(antibiotico_id: str, entrada: PadraoEntrada, _: Equipe, db: D
 # --------------------------------------------------------------------------- #
 
 @app.get("/api/base/isolados", tags=["base"])
-def buscar_isolados(_: Logado, db: Db, base: str | None = None,
+def buscar_isolados(u: Logado, db: Db, base: str | None = None,
                     antibiotico: str | None = None,
                     fenotipo: str | None = None, gene: str | None = None,
                     busca: str | None = None, pagina: int = 1,
                     por_pagina: int = 25):
     """Busca nos isolados de uma base. Só leitura, sem modelo envolvido."""
-    base_linha, df = carregar_base_por_id(db, base)
+    base_linha, df = carregar_base_por_id(db, base, u)
 
     col_gen = treino._achar_coluna(df, "amr", "genotype")
     col_ast = treino._achar_coluna(df, "ast", "phenotype")
@@ -691,10 +721,29 @@ def _slug(texto: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:70] or "base"
 
 
+@app.get("/api/termo-base", tags=["base"])
+def termo_base():
+    """O texto que quem envia uma base precisa aceitar. A tela lê daqui, para
+    o que está escrito na página e o que fica guardado serem a mesma coisa."""
+    return {"versao": config.TERMO_BASE_VERSAO, "texto": config.TERMO_BASE,
+            "max_mb": config.MAX_MB_BASE,
+            "min_linhas": config.MIN_LINHAS_BASE,
+            "cota_pesquisador": config.MAX_BASES_POR_PESQUISADOR}
+
+
+def _contar_bases_de(db: Session, email: str) -> int:
+    """Quantas bases a pessoa tem, contando as que ainda estão em análise."""
+    return len([b for b in db.execute(
+        select(banco.BaseDados)
+        .where(banco.BaseDados.enviada_por == email.lower())
+    ).scalars().all() if b.situacao != "recusada"])
+
+
 @app.get("/api/bases", tags=["base"])
-def listar_bases(_: Logado, db: Db):
-    linhas = db.execute(select(banco.BaseDados)
-                        .order_by(banco.BaseDados.enviada_em)).scalars().all()
+def listar_bases(u: Logado, db: Db):
+    linhas = [b for b in db.execute(
+        select(banco.BaseDados).order_by(banco.BaseDados.enviada_em)
+    ).scalars().all() if base_visivel(b, u)]
     por_base: dict[str, int] = {}
     for m in modelos.listar_metadados():
         por_base[m["base_id"]] = por_base.get(m["base_id"], 0) + 1
@@ -717,17 +766,43 @@ def listar_bases(_: Logado, db: Db):
         d["n_modelos"] = por_base.get(b.id, 0)
         d["arquivo_presente"] = presente
         d["padrao"] = b.id == config.BASE_PADRAO
+        d["minha"] = dono_da_base(b, u)
+        # Quem pode mexer nesta base: o dono apaga e baixa a dele; a equipe
+        # decide o pedido; admin apaga qualquer uma que não seja a de fábrica.
+        d["posso_apagar"] = (b.id != config.BASE_PADRAO
+                             and (d["minha"] or banco.pode(u, "admin")))
+        d["posso_baixar"] = d["minha"] or banco.pode(u, "equipe")
+        d["posso_decidir"] = (b.situacao == "em_analise" and banco.pode(u, "equipe"))
         saida.append(d)
     return saida
 
 
-@app.post("/api/bases", status_code=201, tags=["equipe"])
-async def importar_base(equipe: Equipe, db: Db,
+@app.post("/api/bases", status_code=201, tags=["base"])
+async def importar_base(u: Logado, db: Db,
                         arquivo: UploadFile = File(...),
                         nome: str = Form(...),
                         especie: str = Form(...),
-                        observacao: str = Form("")):
-    """Recebe um CSV ou TSV de isolados e passa a servi-lo como mais uma base."""
+                        observacao: str = Form(""),
+                        termo: bool = Form(False)):
+    """Recebe um CSV ou TSV de isolados e passa a servi-lo como mais uma base.
+
+    Da equipe para cima, a base já entra valendo. Pesquisador manda um pedido:
+    a base fica só para ele até alguém da equipe aprovar, e ele precisa aceitar
+    o termo de responsabilidade — o dado é dele e a conta é dele.
+    """
+    da_equipe = banco.pode(u, "equipe")
+
+    if not da_equipe:
+        if not termo:
+            raise HTTPException(
+                400, "É preciso aceitar o termo de responsabilidade para enviar "
+                     "uma base.")
+        quantas = _contar_bases_de(db, u.email)
+        if quantas >= config.MAX_BASES_POR_PESQUISADOR:
+            raise HTTPException(
+                409, f"Você já tem {quantas} bases na plataforma, que é o limite. "
+                     "Remova uma antes de enviar outra.")
+
     if not arquivo.filename or not arquivo.filename.lower().endswith((".csv", ".tsv", ".txt")):
         raise HTTPException(400, "Envie um arquivo .csv ou .tsv exportado do NCBI.")
 
@@ -783,36 +858,89 @@ async def importar_base(equipe: Equipe, db: Db,
         destino.unlink(missing_ok=True)
         raise HTTPException(422, f"Arquivo recusado: {e}")
 
+    situacao = "aprovada" if da_equipe else "em_analise"
     db.add(banco.BaseDados(
         id=base_id, nome=nome.strip(), especie=especie.strip() or "—",
         arquivo=destino.name, origem="upload",
         n_isolados=int(len(df)), n_com_ast=n_ast,
-        enviada_por=equipe.email, observacao=(observacao or "").strip() or None,
+        enviada_por=u.email, observacao=(observacao or "").strip() or None,
+        situacao=situacao,
+        decidida_em=banco.agora() if da_equipe else None,
+        decidida_por=u.email if da_equipe else None,
+        termo_aceito=True if da_equipe else bool(termo),
+        termo_versao=config.TERMO_BASE_VERSAO,
     ))
     db.commit()
     esquecer_base(base_id)
 
+    if treinaveis:
+        recado = f"{len(treinaveis)} antibiótico(s) com dado suficiente para treinar."
+    else:
+        recado = ("Nenhum antibiótico desta base tem isolados suficientes nas duas "
+                  "classes. A base entra na plataforma para consulta, mas não dá "
+                  "para treinar modelo com ela.")
+    if not da_equipe:
+        recado += (" O pedido foi enviado: por enquanto só você enxerga esta base. "
+                   "Assim que a equipe aprovar, ela fica disponível para todo mundo.")
+
     return {
         "id": base_id, "nome": nome.strip(), "especie": especie.strip(),
-        "n_isolados": int(len(df)), "n_com_ast": n_ast,
+        "n_isolados": int(len(df)), "n_com_ast": n_ast, "situacao": situacao,
         "treinaveis": [{"nome_base": a["nome_base"], "nome": config.nome_pt(a["nome_base"]),
                         "n_util": a["n_util"], "confianca": a["confianca"]}
                        for a in treinaveis],
-        "mensagem": (f"{len(treinaveis)} antibiótico(s) com dado suficiente para treinar."
-                     if treinaveis else
-                     "Nenhum antibiótico desta base tem isolados suficientes nas duas "
-                     "classes. A base entra na plataforma para consulta, mas não dá "
-                     "para treinar modelo com ela."),
+        "mensagem": recado,
     }
 
 
-@app.delete("/api/bases/{base_id}", tags=["equipe"])
-def apagar_base(base_id: str, _: Admin, db: Db):
+@app.post("/api/bases/{base_id}/decidir", tags=["equipe"])
+def decidir_base(base_id: str, entrada: DecisaoEntrada, equipe: Equipe, db: Db):
+    """Aprova ou recusa um pedido de base. Recusar apaga o arquivo enviado."""
     linha = db.get(banco.BaseDados, base_id)
     if linha is None:
         raise HTTPException(404, "Base não encontrada.")
+    if linha.situacao != "em_analise":
+        raise HTTPException(400, f"Esta base já foi {linha.situacao.replace('_', ' ')}.")
+
+    linha.situacao = "aprovada" if entrada.aprovar else "recusada"
+    linha.decidida_em = banco.agora()
+    linha.decidida_por = equipe.email
+    linha.motivo_recusa = None if entrada.aprovar else (entrada.motivo or None)
+    if not entrada.aprovar:
+        # Recusou: o arquivo sai do disco na hora. Guardar dado de alguém que
+        # a gente decidiu não aceitar seria o pior dos dois mundos. O registro
+        # do pedido fica, para a pessoa ver o motivo.
+        caminho_da_base(linha).unlink(missing_ok=True)
+        esquecer_base(base_id)
+    db.commit()
+    return linha.publico()
+
+
+@app.get("/api/bases/{base_id}/arquivo", tags=["base"])
+def baixar_base(base_id: str, u: Logado, db: Db):
+    """Devolve o CSV da base. O dono baixa a dele; a equipe baixa qualquer uma."""
+    linha = db.get(banco.BaseDados, base_id)
+    if linha is None or not base_visivel(linha, u):
+        raise HTTPException(404, "Base não encontrada.")
+    if not (dono_da_base(linha, u) or banco.pode(u, "equipe")):
+        raise HTTPException(403, "Esta base não é sua.")
+    caminho = caminho_da_base(linha)
+    if not caminho.exists():
+        raise HTTPException(404, "O arquivo desta base não está mais no servidor.")
+    return FileResponse(caminho, media_type="text/csv",
+                        filename=f"{linha.id}{caminho.suffix}")
+
+
+@app.delete("/api/bases/{base_id}", tags=["base"])
+def apagar_base(base_id: str, u: Logado, db: Db):
+    """Remove a base e os modelos treinados com ela. O dono apaga a dele."""
+    linha = db.get(banco.BaseDados, base_id)
+    if linha is None or not base_visivel(linha, u):
+        raise HTTPException(404, "Base não encontrada.")
     if linha.origem == "inicial":
         raise HTTPException(400, "A base que vem de fábrica não pode ser removida.")
+    if not (dono_da_base(linha, u) or banco.pode(u, "admin")):
+        raise HTTPException(403, "Só quem enviou a base, ou um admin, pode removê-la.")
 
     n = modelos.apagar_base(base_id)
     for a in db.execute(select(banco.Antibiotico)
@@ -830,17 +958,17 @@ def apagar_base(base_id: str, _: Admin, db: Db):
 # --------------------------------------------------------------------------- #
 
 @app.get("/api/base/resumo", tags=["base"])
-def resumo(_: Logado, db: Db, base: str | None = None):
+def resumo(u: Logado, db: Db, base: str | None = None):
     base_id = base or config.BASE_PADRAO
     metas = modelos.listar_metadados(base_id)
-    linha = db.get(banco.BaseDados, base_id)
+    linha = exigir_base(db, base_id, u)
 
     total_isolados = linha.n_isolados if linha else None
     com_ast = linha.n_com_ast if linha else None
     # A base de fábrica entra com zeros: só dá para contar lendo o CSV.
     if linha is not None and not total_isolados:
         try:
-            _, df = carregar_base_por_id(db, base_id)
+            _, df = carregar_base_por_id(db, base_id, u)
             total_isolados = int(len(df))
             col = treino._achar_coluna(df, "ast", "phenotype")
             com_ast = int(df[col].notna().sum()) if col else 0
@@ -870,13 +998,19 @@ def resumo(_: Logado, db: Db, base: str | None = None):
 
 
 @app.get("/api/base/antibioticos", tags=["base"])
-def listar_antibioticos(_: Logado, db: Db, base: str | None = None):
+def listar_antibioticos(u: Logado, db: Db, base: str | None = None):
     """Os antibióticos que a plataforma serve, com o modelo de cada um."""
     por_id = {m["chave"]: m for m in modelos.listar_metadados()}
     q = select(banco.Antibiotico).order_by(banco.Antibiotico.nome)
     if base:
+        exigir_base(db, base, u)
         q = q.where(banco.Antibiotico.base_id == base)
     linhas = db.execute(q).scalars().all()
+    # Sem filtro de base, a lista traz só as bases que esta pessoa enxerga.
+    if not base:
+        visiveis = {b.id for b in db.execute(select(banco.BaseDados)).scalars().all()
+                    if base_visivel(b, u)}
+        linhas = [a for a in linhas if a.base_id in visiveis]
     saida = []
     for a in linhas:
         m = por_id.get(a.id)
@@ -906,10 +1040,10 @@ def listar_antibioticos(_: Logado, db: Db, base: str | None = None):
 
 
 @app.get("/api/antibioticos/disponiveis", tags=["equipe"])
-def disponiveis(_: Equipe, db: Db, base: str | None = None):
+def disponiveis(u: Equipe, db: Db, base: str | None = None):
     """O que existe na base escolhida e ainda não virou modelo."""
     base_id = base or config.BASE_PADRAO
-    linha, df = carregar_base_por_id(db, base_id)
+    linha, df = carregar_base_por_id(db, base_id, u)
     encontrados = treino.antibioticos_disponiveis(df)
     ja_tem = {a.id for a in db.execute(
         select(banco.Antibiotico).where(banco.Antibiotico.base_id == base_id)
@@ -922,7 +1056,8 @@ def disponiveis(_: Equipe, db: Db, base: str | None = None):
 
 
 @app.get("/api/antibioticos/{antibiotico_id}/genes", tags=["base"])
-def genes(antibiotico_id: str, _: Logado):
+def genes(antibiotico_id: str, u: Logado, db: Db):
+    exigir_antibiotico_visivel(db, antibiotico_id, u)
     meta = modelos.metadados(antibiotico_id)
     if meta is None:
         raise HTTPException(404, "Não existe modelo treinado para esse antibiótico.")
@@ -936,8 +1071,10 @@ def genes(antibiotico_id: str, _: Logado):
 
 
 @app.get("/api/modelos", tags=["base"])
-def comparacao(_: Logado, antibiotico: str | None = None):
-    metas = modelos.listar_metadados()
+def comparacao(u: Logado, db: Db, antibiotico: str | None = None):
+    visiveis = {b.id for b in db.execute(select(banco.BaseDados)).scalars().all()
+                if base_visivel(b, u)}
+    metas = [m for m in modelos.listar_metadados() if m["base_id"] in visiveis]
     if not metas:
         raise HTTPException(503, "Nenhum modelo treinado ainda.")
     meta = next((m for m in metas if m["chave"] == antibiotico), metas[0])
@@ -957,8 +1094,12 @@ def comparacao(_: Logado, antibiotico: str | None = None):
 @app.post("/api/antibioticos/treinar", tags=["equipe"])
 def treinar_novo(entrada: TreinoEntrada, equipe: Equipe, db: Db):
     """Treina um antibiótico novo a partir da base escolhida. Leva alguns segundos."""
-    base_linha, df = carregar_base_por_id(db, entrada.base)
+    base_linha, df = carregar_base_por_id(db, entrada.base, equipe)
     base_id = base_linha.id
+    if base_linha.situacao != "aprovada":
+        raise HTTPException(
+            400, f"A base '{base_linha.nome}' ainda está em análise. Aprove o "
+                 "pedido antes de treinar com ela.")
 
     alvo = entrada.antibiotico.strip().lower()
     candidatos = {a["nome_base"]: a for a in treino.antibioticos_disponiveis(df)}
@@ -1010,6 +1151,7 @@ def prever(entrada: PrevisaoEntrada, u: Logado, db: Db):
     linha = db.get(banco.Antibiotico, entrada.antibiotico)
     if linha is None or not linha.ativo or not modelos.tem_modelo(entrada.antibiotico):
         raise HTTPException(404, "Não existe modelo ativo para esse antibiótico.")
+    exigir_antibiotico_visivel(db, entrada.antibiotico, u)
     if not entrada.genes:
         raise HTTPException(400, "Marque pelo menos um gene de resistência.")
 

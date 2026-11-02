@@ -16,6 +16,18 @@
      que aqui espremeria o texto. */
   .lista-confere { margin: 0.75rem 0 0 1.1rem; display: grid; gap: 0.6rem; }
   .lista-confere li { font-size: var(--t-sm); line-height: 1.55; }
+
+  /* O termo de responsabilidade. Fica dentro de uma caixa com rolagem para o
+     texto não empurrar o botão de enviar para fora da tela. */
+  .termo {
+    border: var(--borda); border-radius: var(--raio);
+    background: var(--superficie);
+    padding: var(--esp-2); max-height: 9rem; overflow-y: auto;
+    font-size: var(--t-xs); line-height: 1.6; color: var(--roxo-suave);
+  }
+  /* .aceite já existe no style.css, usada no cadastro: caixa rosa-clara com
+     contorno. Aqui só afasta do texto do termo. */
+  .aceite { margin-top: 0.75rem; }
 </style>
 </head>
 <body>
@@ -33,7 +45,7 @@
       <li><a href="nova-analise.html">Nova análise</a></li>
       <li><a href="modelos.html">Modelos</a></li>
       <li><a href="isolados.html">Base</a></li>
-      <li data-papel="equipe" hidden><a href="bases.html" aria-current="page">Bases</a></li>
+      <li><a href="bases.html" aria-current="page">Bases</a></li>
       <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
       <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
       <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
@@ -58,13 +70,23 @@
 
   <div class="recado" id="recado" hidden></div>
 
-  <section aria-labelledby="t-lista">
+  <section id="bloco-pedidos" data-papel="equipe" hidden aria-labelledby="t-pedidos">
+    <h2 id="t-pedidos">Pedidos aguardando análise</h2>
+    <p style="color:var(--roxo-suave);margin-top:0.5rem">
+      Bases enviadas por pesquisadores. Enquanto o pedido estiver aqui, só quem enviou
+      enxerga a base. Recusar apaga o arquivo do servidor na hora.
+    </p>
+    <div id="pedidos" style="margin-top:1rem"></div>
+  </section>
+
+  <section class="secao" aria-labelledby="t-lista">
     <h2 id="t-lista">Bases disponíveis</h2>
     <div id="lista" class="carregando" style="margin-top:1rem">Carregando</div>
   </section>
 
   <section class="secao" aria-labelledby="t-nova">
-    <h2 id="t-nova">Importar uma base</h2>
+    <h2 id="t-nova">Enviar uma base</h2>
+    <p id="explica-envio" style="color:var(--roxo-suave);margin-bottom:1rem"></p>
 
     <div class="grade grade-2">
       <div class="cartao">
@@ -99,7 +121,16 @@
                       placeholder="de onde veio, qual o recorte, data do download"></textarea>
           </div>
 
-          <button class="botao" type="submit" id="btn-enviar">Importar base</button>
+          <div class="campo">
+            <label for="termo-texto">Termo de responsabilidade</label>
+            <div class="termo" id="termo-texto" tabindex="0">Carregando…</div>
+            <div class="aceite">
+              <input type="checkbox" id="termo" required>
+              <label for="termo">Li e aceito o termo acima.</label>
+            </div>
+          </div>
+
+          <button class="botao" type="submit" id="btn-enviar">Enviar base</button>
         </form>
       </div>
 
@@ -126,11 +157,11 @@
   <div class="aviso">
     <span class="etiqueta etiqueta-neutra" aria-hidden="true">Importante</span>
     <div>
-      <strong>Importar não treina</strong>
-      <p>A base entra na plataforma para consulta na hora, mas os modelos dela começam
-         vazios. Depois de importar, vá em <a href="antibioticos.html">Antibióticos</a>,
-         escolha a base nova e treine um antibiótico de cada vez. Só o admin pode remover
-         uma base — e remover apaga também os modelos treinados com ela.</p>
+      <strong>Enviar não treina</strong>
+      <p>A base entra para consulta, mas os modelos dela começam vazios. Quem treina é a
+         equipe, na tela <a href="antibioticos.html">Antibióticos</a>, depois que o
+         pedido for aprovado. Você pode baixar de volta e remover a sua base a qualquer
+         momento — remover apaga junto os modelos treinados com ela.</p>
     </div>
   </div>
 
@@ -144,10 +175,17 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   var lista = document.getElementById("lista");
+  var pedidos = document.getElementById("pedidos");
   var form = document.getElementById("form-base");
   var btn = document.getElementById("btn-enviar");
   var saida = document.getElementById("saida");
-  var sou_admin = false;
+  var eu = null, souEquipe = false;
+
+  var SITUACAO = {
+    em_analise: ["em análise", "etiqueta-neutra"],
+    aprovada: ["aprovada", "selo-alta"],
+    recusada: ["recusada", "etiqueta-resistente"]
+  };
 
   function data(iso) {
     if (!iso) return "—";
@@ -155,10 +193,15 @@ document.addEventListener("DOMContentLoaded", function () {
     return isNaN(d) ? "—" : d.toLocaleDateString("pt-BR");
   }
 
-  function cartao(b) {
-    var div = document.createElement("div");
-    div.className = "cartao solicitacao";
+  function selo(texto, classe, dica) {
+    var s = document.createElement("span");
+    s.className = "etiqueta " + classe;
+    s.textContent = texto;
+    if (dica) s.title = dica;
+    return s;
+  }
 
+  function cabecalho(b) {
     var topo = document.createElement("div");
     topo.className = "topo-linha";
     var h = document.createElement("h3");
@@ -169,29 +212,36 @@ document.addEventListener("DOMContentLoaded", function () {
     selos.style.gap = "0.4rem";
     selos.style.flexWrap = "wrap";
 
-    var tipo = document.createElement("span");
-    tipo.className = "etiqueta " + (b.padrao ? "etiqueta-neutra" : "selo-alta");
-    tipo.textContent = b.padrao ? "vem de fábrica" : "importada";
-    selos.appendChild(tipo);
-
-    if (!b.arquivo_presente) {
-      var falta = document.createElement("span");
-      falta.className = "etiqueta etiqueta-resistente";
-      falta.textContent = "arquivo ausente";
-      falta.title = "A base está registrada mas o CSV não está na pasta dados/.";
-      selos.appendChild(falta);
+    if (b.padrao) {
+      selos.appendChild(selo("vem de fábrica", "etiqueta-neutra"));
+    } else {
+      var cfg = SITUACAO[b.situacao] || ["—", "etiqueta-neutra"];
+      selos.appendChild(selo(cfg[0], cfg[1]));
+    }
+    if (b.minha) selos.appendChild(selo("sua", "selo-media"));
+    if (!b.arquivo_presente && b.situacao !== "recusada") {
+      selos.appendChild(selo("arquivo ausente", "etiqueta-resistente",
+        "A base está registrada mas o arquivo não está no servidor."));
     }
     topo.append(h, selos);
+    return topo;
+  }
 
-    var meta = document.createElement("p");
-    meta.className = "meta";
-    meta.textContent = b.especie + " · " + Bio.inteiro(b.n_isolados) + " isolados · " +
+  function meta(b) {
+    var p = document.createElement("p");
+    p.className = "meta";
+    p.textContent = b.especie + " · " + Bio.inteiro(b.n_isolados) + " isolados · " +
       Bio.inteiro(b.n_com_ast) + " com antibiograma · " +
       b.n_modelos + " modelo(s) treinado(s)" +
       (b.enviada_por ? " · enviada por " + b.enviada_por : "") +
       " · " + data(b.enviada_em);
+    return p;
+  }
 
-    div.append(topo, meta);
+  function cartao(b) {
+    var div = document.createElement("div");
+    div.className = "cartao solicitacao";
+    div.append(cabecalho(b), meta(b));
 
     if (b.observacao) {
       var obs = document.createElement("p");
@@ -202,62 +252,195 @@ document.addEventListener("DOMContentLoaded", function () {
       div.appendChild(obs);
     }
 
+    if (b.situacao === "recusada") {
+      var rec = document.createElement("div");
+      rec.className = "recado recado-erro";
+      rec.style.marginTop = "0.75rem";
+      rec.textContent = "Pedido recusado" +
+        (b.decidida_por ? " por " + b.decidida_por : "") + "." +
+        (b.motivo_recusa ? " Motivo: " + b.motivo_recusa : "");
+      div.appendChild(rec);
+    }
+
     var acoes = document.createElement("div");
     acoes.className = "acoes";
 
-    var ver = document.createElement("a");
-    ver.className = "botao botao-mini botao-claro";
-    ver.href = "isolados.html?base=" + encodeURIComponent(b.id);
-    ver.textContent = "Explorar isolados";
-    acoes.appendChild(ver);
-
-    if (!b.padrao && sou_admin) {
-      var passo = 0;
-      var del = document.createElement("button");
-      del.type = "button";
-      del.className = "botao botao-mini botao-recusar";
-      del.textContent = "Remover base";
-      del.addEventListener("click", function () {
-        if (passo === 0) {
-          passo = 1;
-          del.textContent = "Confirmar: apaga " + b.n_modelos + " modelo(s)";
-          setTimeout(function () {
-            if (passo === 1) { passo = 0; del.textContent = "Remover base"; }
-          }, 6000);
-          return;
-        }
-        Bio.ocupado(del, true, "Removendo…");
-        Bio.api("/api/bases/" + encodeURIComponent(b.id), { method: "DELETE" })
-          .then(function () {
-            Bio.aviso("#recado", "Base “" + b.nome + "” removida.", "ok");
-            carregar();
-          }).catch(function (e) {
-            Bio.ocupado(del, false);
-            Bio.aviso("#recado", e.message);
-          });
-      });
-      acoes.appendChild(del);
+    if (b.situacao === "aprovada" && b.arquivo_presente) {
+      var ver = document.createElement("a");
+      ver.className = "botao botao-mini botao-claro";
+      ver.href = "isolados.html?base=" + encodeURIComponent(b.id);
+      ver.textContent = "Explorar isolados";
+      acoes.appendChild(ver);
     }
 
-    div.appendChild(acoes);
+    if (b.posso_baixar && b.arquivo_presente) {
+      var baixar = document.createElement("button");
+      baixar.type = "button";
+      baixar.className = "botao botao-mini botao-claro";
+      baixar.textContent = "Baixar o arquivo";
+      baixar.addEventListener("click", function () { baixarArquivo(b, baixar); });
+      acoes.appendChild(baixar);
+    }
+
+    if (b.posso_apagar) acoes.appendChild(botaoRemover(b));
+
+    if (acoes.children.length) div.appendChild(acoes);
     return div;
   }
 
+  /* O download precisa do token, então não dá para ser um <a href> simples:
+     busca com o cabeçalho de autorização e entrega o blob ao navegador. */
+  function baixarArquivo(b, botao) {
+    Bio.ocupado(botao, true, "Baixando…");
+    fetch("/api/bases/" + encodeURIComponent(b.id) + "/arquivo", {
+      headers: { Authorization: "Bearer " + Bio.token() }
+    }).then(function (r) {
+      if (!r.ok) throw new Error("Não deu para baixar o arquivo desta base.");
+      return r.blob();
+    }).then(function (blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = b.id + ".csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      Bio.ocupado(botao, false);
+    }).catch(function (e) {
+      Bio.ocupado(botao, false);
+      Bio.aviso("#recado", e.message);
+    });
+  }
+
+  function botaoRemover(b) {
+    var passo = 0;
+    var del = document.createElement("button");
+    del.type = "button";
+    del.className = "botao botao-mini botao-recusar";
+    del.textContent = "Remover base";
+    del.addEventListener("click", function () {
+      if (passo === 0) {
+        passo = 1;
+        del.textContent = b.n_modelos
+          ? "Confirmar: apaga " + b.n_modelos + " modelo(s)"
+          : "Confirmar remoção";
+        setTimeout(function () {
+          if (passo === 1) { passo = 0; del.textContent = "Remover base"; }
+        }, 6000);
+        return;
+      }
+      Bio.ocupado(del, true, "Removendo…");
+      Bio.api("/api/bases/" + encodeURIComponent(b.id), { method: "DELETE" })
+        .then(function () {
+          Bio.aviso("#recado", "Base “" + b.nome + "” removida.", "ok");
+          carregar();
+        }).catch(function (e) {
+          Bio.ocupado(del, false);
+          Bio.aviso("#recado", e.message);
+        });
+    });
+    return del;
+  }
+
+  /* ----------------------------------------------- fila de pedidos (equipe) */
+  function cartaoPedido(b) {
+    var div = cartao(b);
+
+    var acoes = document.createElement("div");
+    acoes.className = "acoes";
+
+    var aprovar = document.createElement("button");
+    aprovar.type = "button";
+    aprovar.className = "botao botao-mini";
+    aprovar.textContent = "Aprovar";
+    aprovar.addEventListener("click", function () {
+      decidir(b, true, null, aprovar);
+    });
+
+    var recusar = document.createElement("button");
+    recusar.type = "button";
+    recusar.className = "botao botao-mini botao-recusar";
+    recusar.textContent = "Recusar";
+
+    var caixa = document.createElement("div");
+    caixa.hidden = true;
+    caixa.style.marginTop = "0.75rem";
+    var campo = document.createElement("div");
+    campo.className = "campo";
+    var rot = document.createElement("label");
+    rot.textContent = "Por que está recusando";
+    rot.htmlFor = "motivo-" + b.id;
+    var txt = document.createElement("textarea");
+    txt.id = "motivo-" + b.id;
+    txt.rows = 2;
+    txt.placeholder = "a pessoa vai ler isto — diga o que faltou";
+    var ok = document.createElement("button");
+    ok.type = "button";
+    ok.className = "botao botao-mini botao-recusar";
+    ok.style.marginTop = "0.5rem";
+    ok.textContent = "Confirmar recusa (apaga o arquivo)";
+    ok.addEventListener("click", function () {
+      decidir(b, false, txt.value.trim() || null, ok);
+    });
+    campo.append(rot, txt, ok);
+    caixa.appendChild(campo);
+
+    recusar.addEventListener("click", function () {
+      caixa.hidden = !caixa.hidden;
+      if (!caixa.hidden) txt.focus();
+    });
+
+    acoes.append(aprovar, recusar);
+    div.append(acoes, caixa);
+    return div;
+  }
+
+  function decidir(b, aprovar, motivo, botao) {
+    Bio.ocupado(botao, true, "Salvando…");
+    Bio.api("/api/bases/" + encodeURIComponent(b.id) + "/decidir", {
+      method: "POST", corpo: { aprovar: aprovar, motivo: motivo }
+    }).then(function () {
+      Bio.aviso("#recado", aprovar
+        ? "Base “" + b.nome + "” aprovada: agora todo mundo enxerga."
+        : "Pedido de “" + b.nome + "” recusado e arquivo apagado.", "ok");
+      carregar();
+    }).catch(function (e) {
+      Bio.ocupado(botao, false);
+      Bio.aviso("#recado", e.message);
+    });
+  }
+
+  /* ------------------------------------------------------------- carregar */
   function carregar() {
     lista.className = "carregando";
     lista.textContent = "Carregando";
     return Bio.api("/api/bases").then(function (bases) {
+      var emAnalise = bases.filter(function (b) { return b.posso_decidir; });
+      var resto = bases.filter(function (b) { return !b.posso_decidir; });
+
+      var bloco = document.getElementById("bloco-pedidos");
+      if (souEquipe) {
+        bloco.hidden = false;
+        pedidos.innerHTML = "";
+        if (!emAnalise.length) {
+          pedidos.className = "vazio";
+          pedidos.textContent = "Nenhum pedido aguardando.";
+        } else {
+          pedidos.className = "";
+          emAnalise.forEach(function (b) { pedidos.appendChild(cartaoPedido(b)); });
+        }
+      }
+
       lista.className = "";
       lista.innerHTML = "";
-      if (!bases.length) {
+      if (!resto.length) {
         lista.className = "vazio";
-        lista.textContent = "Nenhuma base registrada.";
+        lista.textContent = "Nenhuma base disponível.";
         return;
       }
-      bases.forEach(function (b) { lista.appendChild(cartao(b)); });
+      resto.forEach(function (b) { lista.appendChild(cartao(b)); });
     });
   }
 
+  /* --------------------------------------------------------------- enviar */
   form.addEventListener("submit", function (ev) {
     ev.preventDefault();
     Bio.aviso("#recado", null);
@@ -270,12 +453,16 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!nome || !especie) {
       Bio.aviso("#recado", "Preencha o nome da base e a espécie."); return;
     }
+    if (!document.getElementById("termo").checked) {
+      Bio.aviso("#recado", "É preciso aceitar o termo de responsabilidade."); return;
+    }
 
     var dados = new FormData();
     dados.append("arquivo", arq);
     dados.append("nome", nome);
     dados.append("especie", especie);
     dados.append("observacao", document.getElementById("observacao").value.trim());
+    dados.append("termo", "true");
 
     saida.innerHTML = '<p class="carregando">Enviando e conferindo o arquivo</p>';
     Bio.ocupado(btn, true, "Enviando…");
@@ -287,8 +474,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var ok = document.createElement("div");
       ok.className = "recado recado-ok";
-      ok.textContent = r.nome + " importada: " + Bio.inteiro(r.n_isolados) +
-        " isolados, " + Bio.inteiro(r.n_com_ast) + " com antibiograma.";
+      ok.textContent = r.nome + ": " + Bio.inteiro(r.n_isolados) + " isolados, " +
+        Bio.inteiro(r.n_com_ast) + " com antibiograma.";
       saida.appendChild(ok);
 
       var p = document.createElement("p");
@@ -311,12 +498,14 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         saida.appendChild(dl);
 
-        var ir = document.createElement("a");
-        ir.className = "botao botao-mini";
-        ir.style.marginTop = "0.75rem";
-        ir.href = "antibioticos.html";
-        ir.textContent = "Treinar os modelos desta base";
-        saida.appendChild(ir);
+        if (souEquipe && r.situacao === "aprovada") {
+          var ir = document.createElement("a");
+          ir.className = "botao botao-mini";
+          ir.style.marginTop = "0.75rem";
+          ir.href = "antibioticos.html";
+          ir.textContent = "Treinar os modelos desta base";
+          saida.appendChild(ir);
+        }
       }
       carregar();
     }).catch(function (e) {
@@ -326,8 +515,28 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  Bio.exigirLogin({ papel: "equipe" }).then(function (u) {
-    sou_admin = Bio.pode(u, "admin");
+  /* --------------------------------------------------------------- início */
+  Bio.exigirLogin().then(function (u) {
+    eu = u;
+    souEquipe = Bio.pode(u, "equipe");
+    document.getElementById("explica-envio").textContent = souEquipe
+      ? "Como você é da equipe, a base que você envia já entra valendo para todo mundo."
+      : "A base que você envia fica só para você até alguém da equipe aprovar o pedido. "
+      + "Você pode baixá-la de volta e removê-la quando quiser.";
+    return Bio.api("/api/termo-base");
+  }).then(function (t) {
+    document.getElementById("termo-texto").textContent = t.texto;
+    document.getElementById("limite-mb").textContent = t.max_mb;
+    document.getElementById("limite-linhas").textContent = t.min_linhas;
+    if (!souEquipe) {
+      var ajuda = document.createElement("span");
+      ajuda.className = "ajuda";
+      ajuda.style.display = "block";
+      ajuda.style.marginTop = "0.4rem";
+      ajuda.textContent = "Você pode ter até " + t.cota_pesquisador +
+        " bases ao mesmo tempo.";
+      document.querySelector(".aceite").after(ajuda);
+    }
     return carregar();
   }).catch(function (e) {
     if (e && e.message !== "sem sessão" && e.message !== "sem permissão") {

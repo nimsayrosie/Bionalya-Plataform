@@ -27,7 +27,7 @@
       <li><a href="nova-analise.html">Nova análise</a></li>
       <li><a href="modelos.html">Modelos</a></li>
       <li><a href="isolados.html">Base</a></li>
-      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li><a href="bases.html">Bases</a></li>
       <li data-papel="equipe" hidden><a href="antibioticos.html" aria-current="page">Antibióticos</a></li>
       <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
       <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
@@ -366,7 +366,10 @@ document.addEventListener("DOMContentLoaded", function () {
     .then(function (bases) {
       var sel = document.getElementById("base");
       sel.innerHTML = "";
-      bases.filter(function (b) { return b.arquivo_presente; }).forEach(function (b) {
+      // Só as aprovadas: a API recusa treinar com base que ainda é um pedido.
+      bases.filter(function (b) {
+        return b.arquivo_presente && b.situacao === "aprovada";
+      }).forEach(function (b) {
         var o = document.createElement("option");
         o.value = b.id; o.textContent = b.nome;
         sel.appendChild(o);
