@@ -1,0 +1,19 @@
+# Bionalya — dependências da plataforma
+# Instale com:  pip install -r requirements.txt
+#
+# As versões são as que foram realmente usadas e testadas. Se quiser
+# atualizar, rode os testes do fluxo depois.
+
+# API
+fastapi==0.162.0
+uvicorn[standard]==0.52.4
+sqlalchemy==2.1.6
+pydantic[email]==2.13.5
+passlib==1.7.4
+
+# Dados e modelos
+pandas==3.0.5
+numpy==2.5.3
+scikit-learn==1.9.1
+xgboost==3.4.1
+joblib==1.6.0

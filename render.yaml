@@ -1,0 +1,42 @@
+# Bionalya — receita da hospedagem no Render (plano grátis).
+#
+# Com este arquivo na raiz do repositório, o Render monta o serviço sozinho:
+# em dashboard.render.com, "New" > "Blueprint", aponte para o repositório e ele
+# lê daqui. Não pede cartão.
+#
+# O que esperar do plano grátis:
+#   · 750 horas de instância por mês (uma instância ligada o mês inteiro cabe)
+#   · dorme depois de 15 minutos sem acesso; a primeira visita depois disso
+#     leva cerca de 1 minuto para acordar
+#   · o disco é descartável: a cada reinício o bionalya.db volta do zero
+#
+# É por causa da última linha que as contas abaixo vêm de variável de ambiente.
+# Sem elas, a cada reinício a senha do admin mudaria e ninguém mais entraria.
+
+services:
+  - type: web
+    name: bionalya
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./plataforma/Dockerfile
+    dockerContext: .
+    healthCheckPath: /saude
+    autoDeploy: true
+    envVars:
+      # Conta de admin. O e-mail você escolhe; a senha o Render sorteia na
+      # primeira vez (generateValue) e guarda — dá para ler no painel, em
+      # Environment, depois do primeiro deploy.
+      - key: BIONALYA_ADMIN_EMAIL
+        value: equipe@bionalya.app
+      - key: BIONALYA_ADMIN_SENHA
+        generateValue: true
+
+      # Conta aberta de demonstração, para mandar o link para a banca sem dar
+      # acesso de equipe. Apague estas três linhas se não quiser.
+      - key: BIONALYA_DEMO_EMAIL
+        value: demo@bionalya.app
+      - key: BIONALYA_DEMO_SENHA
+        generateValue: true
+      - key: BIONALYA_DEMO_NOME
+        value: Acesso de demonstração

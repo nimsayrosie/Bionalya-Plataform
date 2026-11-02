@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Equipe</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="isolados.html">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html" aria-current="page">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
+      <li><a href="conta.html">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Solicitações de acesso</h1>
+    <p>O cadastro não é automático. Cada pedido é lido por alguém da equipe, que confere
+       o e-mail institucional e a finalidade de uso antes de liberar.</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+
+  <div class="grade grade-3" style="margin-bottom:2rem">
+    <div class="cartao">
+      <span class="rotulo">Em análise</span>
+      <span class="numero" id="n-em_analise">—</span>
+    </div>
+    <div class="cartao">
+      <span class="rotulo">Aprovadas</span>
+      <span class="numero" id="n-aprovado">—</span>
+    </div>
+    <div class="cartao">
+      <span class="rotulo">Recusadas</span>
+      <span class="numero" id="n-recusado">—</span>
+    </div>
+  </div>
+
+  <div class="campo" style="max-width:20rem">
+    <label for="filtro">Mostrar</label>
+    <select id="filtro">
+      <option value="em_analise">Em análise</option>
+      <option value="aprovado">Aprovadas</option>
+      <option value="recusado">Recusadas</option>
+      <option value="todas">Todas</option>
+    </select>
+  </div>
+
+  <div id="lista" class="carregando">Carregando</div>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-neutra" aria-hidden="true">Vale lembrar</span>
+    <div>
+      <strong>Um formulário não comprova vínculo</strong>
+      <p>Ele registra o que a pessoa declarou. O que sustenta o controle de acesso é esta
+         conferência humana. Na dúvida sobre o e-mail ou a finalidade, recuse e peça mais
+         informação por e-mail antes de liberar.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var lista = document.getElementById("lista");
+  var filtro = document.getElementById("filtro");
+
+  var VINCULOS = {
+    estudante: "Estudante", pesquisador: "Pesquisador",
+    docente: "Docente", laboratorio: "Profissional de laboratório"
+  };
+  var SITUACOES = {
+    em_analise: ["Em análise", "etiqueta-neutra"],
+    aprovado: ["Aprovado", "etiqueta-sensivel"],
+    recusado: ["Recusado", "etiqueta-resistente"]
+  };
+
+  function data(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    return isNaN(d) ? "—" : d.toLocaleString("pt-BR", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  }
+
+  function decidir(id, aprovar, botao) {
+    var motivo = null;
+    if (!aprovar) {
+      motivo = window.prompt(
+        "Motivo da recusa (opcional). A pessoa não vê este texto na tela, " +
+        "ele fica registrado para a equipe.");
+      if (motivo === null) return;          // cancelou
+    }
+    Bio.ocupado(botao, true, "Salvando…");
+    Bio.api("/api/equipe/solicitacoes/" + id + "/decidir", {
+      method: "POST", corpo: { aprovar: aprovar, motivo: motivo || null }
+    }).then(function () {
+      Bio.aviso("#recado", aprovar ? "Acesso liberado." : "Solicitação recusada.", "ok");
+      carregar();
+    }).catch(function (e) {
+      Bio.ocupado(botao, false);
+      Bio.aviso("#recado", e.message);
+    });
+  }
+
+  function cartao(s) {
+    var div = document.createElement("div");
+    div.className = "cartao solicitacao";
+
+    var topo = document.createElement("div");
+    topo.className = "topo-linha";
+    var h = document.createElement("h3");
+    h.textContent = s.nome;
+    var sit = document.createElement("span");
+    var cfg = SITUACOES[s.status] || ["—", "etiqueta-neutra"];
+    sit.className = "etiqueta " + cfg[1];
+    sit.textContent = cfg[0];
+    topo.append(h, sit);
+
+    var meta = document.createElement("p");
+    meta.className = "meta";
+    meta.textContent = s.email + " · " + s.instituicao + " · " +
+      (VINCULOS[s.vinculo] || s.vinculo) + " · pedido em " + data(s.criado_em);
+
+    var fin = document.createElement("p");
+    fin.className = "finalidade";
+    fin.textContent = s.finalidade || "(sem finalidade informada)";
+
+    div.append(topo, meta, fin);
+
+    if (s.status === "em_analise") {
+      var acoes = document.createElement("div");
+      acoes.className = "acoes";
+      var ok = document.createElement("button");
+      ok.className = "botao botao-mini"; ok.type = "button";
+      ok.textContent = "Liberar acesso";
+      ok.addEventListener("click", function () { decidir(s.id, true, ok); });
+      var nao = document.createElement("button");
+      nao.className = "botao botao-mini botao-recusar"; nao.type = "button";
+      nao.textContent = "Recusar";
+      nao.addEventListener("click", function () { decidir(s.id, false, nao); });
+      acoes.append(ok, nao);
+      div.appendChild(acoes);
+    } else {
+      var decidido = document.createElement("p");
+      decidido.className = "meta";
+      decidido.textContent = cfg[0].toLowerCase() + " por " + (s.decidido_por || "—") +
+        " em " + data(s.decidido_em) +
+        (s.motivo_recusa ? " · motivo: " + s.motivo_recusa : "");
+      div.appendChild(decidido);
+    }
+    return div;
+  }
+
+  function carregar() {
+    lista.className = "carregando";
+    lista.textContent = "Carregando";
+    Bio.api("/api/equipe/solicitacoes?situacao=" + filtro.value).then(function (d) {
+      Object.keys(d.resumo).forEach(function (k) {
+        var el = document.getElementById("n-" + k);
+        if (el) el.textContent = Bio.inteiro(d.resumo[k]);
+      });
+      lista.className = "";
+      lista.innerHTML = "";
+      if (!d.solicitacoes.length) {
+        lista.className = "vazio";
+        lista.textContent = filtro.value === "em_analise"
+          ? "Nenhuma solicitação esperando resposta."
+          : "Nada para mostrar com esse filtro.";
+        return;
+      }
+      d.solicitacoes.forEach(function (s) { lista.appendChild(cartao(s)); });
+    }).catch(function (e) { Bio.aviso("#recado", e.message); });
+  }
+
+  filtro.addEventListener("change", carregar);
+  Bio.exigirLogin({ equipe: true }).then(carregar).catch(function (e) {
+    if (e && e.message !== "sem sessão" && e.message !== "sem permissão") {
+      Bio.aviso("#recado", e.message);
+    }
+  });
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Minha conta</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="isolados.html">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
+      <li><a href="conta.html" aria-current="page">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Minha conta</h1>
+    <p>Seus dados na plataforma e a troca de senha.</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+  <div class="recado recado-erro" id="aviso-senha" hidden></div>
+
+  <div class="grade grade-2">
+
+    <div class="cartao">
+      <h2>Seus dados</h2>
+      <dl class="definicoes" id="dados">
+        <div><dt>Nome</dt><dd data-f="nome">—</dd></div>
+        <div><dt>E-mail</dt><dd data-f="email">—</dd></div>
+        <div><dt>Instituição</dt><dd data-f="instituicao">—</dd></div>
+        <div><dt>Vínculo</dt><dd data-f="vinculo">—</dd></div>
+        <div><dt>Papel</dt><dd data-f="papel">—</dd></div>
+        <div><dt>Acesso liberado em</dt><dd data-f="decidido">—</dd></div>
+      </dl>
+      <p class="ajuda" style="margin-top:1rem">
+        Para corrigir nome, e-mail ou instituição, fale com alguém da equipe: esses
+        campos não são editáveis por aqui porque são o que sustenta a conferência de
+        vínculo.
+      </p>
+    </div>
+
+    <div class="cartao">
+      <h2>Trocar senha</h2>
+      <form id="form-senha" style="margin-top:1.5rem" novalidate>
+        <div class="campo">
+          <label for="atual">Senha atual</label>
+          <input type="password" id="atual" autocomplete="current-password" required>
+        </div>
+        <div class="campo">
+          <label for="nova">Senha nova</label>
+          <input type="password" id="nova" autocomplete="new-password" required minlength="8">
+          <span class="ajuda">No mínimo 8 caracteres.</span>
+        </div>
+        <div class="campo">
+          <label for="confirma">Repita a senha nova</label>
+          <input type="password" id="confirma" autocomplete="new-password" required minlength="8">
+        </div>
+        <button class="botao" type="submit" id="btn-senha">Trocar senha</button>
+      </form>
+      <p class="ajuda" style="margin-top:1rem">
+        Trocar a senha encerra as outras sessões abertas com a sua conta. Esta aba
+        continua logada.
+      </p>
+    </div>
+
+  </div>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-neutra" aria-hidden="true">Seus dados</span>
+    <div>
+      <strong>O que a plataforma guarda sobre você</strong>
+      <p>Nome, e-mail, instituição, vínculo e a finalidade que você declarou, usados só
+         para liberar e identificar seu acesso. A senha é guardada como hash — ninguém,
+         nem a equipe, consegue lê-la. Para remover sua conta, peça a quem é admin.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var form = document.getElementById("form-senha");
+  var btn = document.getElementById("btn-senha");
+
+  var PAPEL = {
+    pesquisador: "Pesquisador — analisa isolados",
+    equipe: "Equipe — libera acessos e treina modelos",
+    admin: "Admin — também gerencia usuários"
+  };
+  var VINCULO = {
+    estudante: "Estudante", pesquisador: "Pesquisador",
+    docente: "Docente", laboratorio: "Profissional de laboratório"
+  };
+
+  function campo(nome, valor) {
+    var el = document.querySelector('[data-f="' + nome + '"]');
+    if (el) el.textContent = valor;
+  }
+
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    Bio.aviso("#recado", null);
+    var nova = document.getElementById("nova").value;
+    if (nova !== document.getElementById("confirma").value) {
+      return Bio.aviso("#recado", "As duas senhas novas não são iguais.");
+    }
+    Bio.ocupado(btn, true, "Trocando…");
+    Bio.api("/api/eu/senha", { method: "POST", corpo: {
+      senha_atual: document.getElementById("atual").value, senha_nova: nova
+    }}).then(function (r) {
+      Bio.ocupado(btn, false);
+      form.reset();
+      document.getElementById("aviso-senha").hidden = true;
+      Bio.aviso("#recado", r.mensagem, "ok");
+    }).catch(function (e) {
+      Bio.ocupado(btn, false);
+      Bio.aviso("#recado", e.message);
+    });
+  });
+
+  Bio.exigirLogin().then(function (u) {
+    campo("nome", u.nome);
+    campo("email", u.email);
+    campo("instituicao", u.instituicao);
+    campo("vinculo", VINCULO[u.vinculo] || u.vinculo);
+    campo("papel", PAPEL[u.papel] || u.papel);
+    campo("decidido", u.decidido_em
+      ? new Date(u.decidido_em).toLocaleDateString("pt-BR") : "—");
+
+    if (!u.senha_trocada) {
+      var av = document.getElementById("aviso-senha");
+      av.hidden = false;
+      av.textContent = "Você ainda está usando a senha inicial desta conta. " +
+        "Troque agora, principalmente se outras pessoas vão usar a plataforma.";
+      document.getElementById("atual").focus();
+    }
+  }).catch(function (e) {
+    if (e && e.message !== "sem sessão") Bio.aviso("#recado", e.message);
+  });
+});
+</script>
+
+</body>
+</html>

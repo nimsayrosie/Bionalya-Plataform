@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Usuários</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="isolados.html">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html" aria-current="page">Usuários</a></li>
+      <li><a href="conta.html">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Usuários</h1>
+    <p>Quem tem conta na plataforma e o que cada pessoa pode fazer. Só quem é admin
+       enxerga esta tela.</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+
+  <div class="grade grade-3" style="margin-bottom:2rem">
+    <div class="cartao">
+      <span class="rotulo">Pesquisadores</span>
+      <span class="numero" id="n-pesquisador">—</span>
+      <span class="ajuda">analisam isolados</span>
+    </div>
+    <div class="cartao">
+      <span class="rotulo">Equipe</span>
+      <span class="numero" id="n-equipe">—</span>
+      <span class="ajuda">+ liberam acessos e treinam modelos</span>
+    </div>
+    <div class="cartao">
+      <span class="rotulo">Admins</span>
+      <span class="numero" id="n-admin">—</span>
+      <span class="ajuda">+ gerenciam usuários</span>
+    </div>
+  </div>
+
+  <section class="cartao" style="margin-bottom:2rem" aria-labelledby="t-criar">
+    <h2 id="t-criar" style="font-size:var(--t-lg)">Criar um acesso para compartilhar</h2>
+    <p style="color:var(--roxo-suave);margin-top:0.5rem;font-size:var(--t-sm)">
+      O caminho curto: a conta já nasce aprovada, sem a pessoa precisar se cadastrar e
+      esperar liberação. Serve para a banca, para o orientador ou para um teste rápido.
+      Deixe a senha em branco e a plataforma sorteia uma — ela aparece uma única vez.
+    </p>
+
+    <form id="form-conta" style="margin-top:1.25rem" novalidate>
+      <div class="grade grade-2">
+        <div class="campo">
+          <label for="c-nome">Nome</label>
+          <input type="text" id="c-nome" maxlength="160" required
+                 placeholder="ex.: Prof. Orientador">
+        </div>
+        <div class="campo">
+          <label for="c-email">E-mail</label>
+          <input type="email" id="c-email" maxlength="160" required
+                 placeholder="nome@instituicao.br">
+        </div>
+        <div class="campo">
+          <label for="c-papel">Papel</label>
+          <select id="c-papel">
+            <option value="pesquisador">Pesquisador — analisa e consulta</option>
+            <option value="equipe">Equipe — + libera acessos e treina modelos</option>
+            <option value="admin">Admin — + gerencia usuários</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="c-senha">Senha (opcional)</label>
+          <input type="text" id="c-senha" minlength="8" maxlength="64" autocomplete="off"
+                 placeholder="em branco = sorteada pela plataforma">
+          <span class="ajuda">Mínimo de 8 caracteres.</span>
+        </div>
+      </div>
+      <button class="botao" type="submit" id="btn-criar">Criar acesso</button>
+    </form>
+
+    <div id="credencial" style="margin-top:1.25rem" hidden></div>
+  </section>
+
+  <div class="grade grade-2" style="align-items:end">
+    <div class="campo">
+      <label for="busca">Buscar</label>
+      <input type="search" id="busca" placeholder="nome, e-mail ou instituição" autocomplete="off">
+    </div>
+    <div class="campo">
+      <label for="filtro">Papel</label>
+      <select id="filtro">
+        <option value="">Todos</option>
+        <option value="pesquisador">Pesquisador</option>
+        <option value="equipe">Equipe</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="lista" class="carregando">Carregando</div>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-neutra" aria-hidden="true">Como funciona</span>
+    <div>
+      <strong>Os papéis são cumulativos</strong>
+      <p>Quem é <strong>equipe</strong> pode tudo que um pesquisador pode, mais liberar
+         cadastros e treinar modelos. Quem é <strong>admin</strong> pode tudo isso, mais
+         mexer nos papéis. Promover alguém já libera o acesso dessa pessoa, e desativar
+         uma conta derruba as sessões abertas dela na hora. A plataforma não deixa você
+         rebaixar ou desativar a si mesmo, nem ficar sem nenhum admin ativo.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var lista = document.getElementById("lista");
+  var busca = document.getElementById("busca");
+  var filtro = document.getElementById("filtro");
+  var eu = null;
+  var espera = null;
+
+  var PAPEL = { pesquisador: "Pesquisador", equipe: "Equipe", admin: "Admin" };
+  var VINCULO = {
+    estudante: "Estudante", pesquisador: "Pesquisador",
+    docente: "Docente", laboratorio: "Profissional de laboratório"
+  };
+  var SITUACAO = {
+    em_analise: ["Em análise", "etiqueta-neutra"],
+    aprovado: ["Aprovado", "etiqueta-sensivel"],
+    recusado: ["Recusado", "etiqueta-resistente"]
+  };
+
+  function data(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    return isNaN(d) ? "—" : d.toLocaleDateString("pt-BR");
+  }
+
+  function cartao(u) {
+    var div = document.createElement("div");
+    div.className = "cartao solicitacao";
+    if (!u.ativo) div.style.opacity = "0.6";
+
+    var topo = document.createElement("div");
+    topo.className = "topo-linha";
+    var h = document.createElement("h3");
+    h.textContent = u.nome + (u.id === eu.id ? " (você)" : "");
+    var selos = document.createElement("span");
+    selos.style.display = "flex";
+    selos.style.gap = "0.4rem";
+    selos.style.flexWrap = "wrap";
+
+    var cfg = SITUACAO[u.status] || ["—", "etiqueta-neutra"];
+    var sit = document.createElement("span");
+    sit.className = "etiqueta " + cfg[1];
+    sit.textContent = cfg[0];
+    selos.appendChild(sit);
+
+    if (!u.ativo) {
+      var des = document.createElement("span");
+      des.className = "etiqueta etiqueta-resistente";
+      des.textContent = "Desativado";
+      selos.appendChild(des);
+    }
+    topo.append(h, selos);
+
+    var meta = document.createElement("p");
+    meta.className = "meta";
+    meta.textContent = u.email + " · " + u.instituicao + " · " +
+      (VINCULO[u.vinculo] || u.vinculo) + " · desde " + data(u.criado_em) +
+      (u.senha_trocada ? "" : " · ainda não trocou a senha inicial");
+
+    div.append(topo, meta);
+
+    var acoes = document.createElement("div");
+    acoes.className = "acoes";
+    acoes.style.alignItems = "center";
+
+    var rot = document.createElement("span");
+    rot.className = "rotulo";
+    rot.textContent = "Papel";
+    rot.style.marginRight = "0.3rem";
+
+    var sel = document.createElement("select");
+    sel.setAttribute("aria-label", "Papel de " + u.nome);
+    sel.style.maxWidth = "12rem";
+    Object.keys(PAPEL).forEach(function (p) {
+      var o = document.createElement("option");
+      o.value = p; o.textContent = PAPEL[p];
+      sel.appendChild(o);
+    });
+    sel.value = u.papel;
+    sel.disabled = u.id === eu.id;
+    sel.addEventListener("change", function () {
+      sel.disabled = true;
+      Bio.api("/api/admin/usuarios/" + u.id + "/papel", {
+        method: "POST", corpo: { papel: sel.value }
+      }).then(function (r) {
+        Bio.aviso("#recado", u.nome + " agora é " + PAPEL[r.papel].toLowerCase() + ".", "ok");
+        carregar();
+      }).catch(function (e) {
+        sel.disabled = false; sel.value = u.papel;
+        Bio.aviso("#recado", e.message);
+      });
+    });
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "botao botao-mini " + (u.ativo ? "botao-recusar" : "");
+    btn.textContent = u.ativo ? "Desativar conta" : "Reativar conta";
+    btn.disabled = u.id === eu.id;
+    btn.addEventListener("click", function () {
+      Bio.ocupado(btn, true, "Salvando…");
+      Bio.api("/api/admin/usuarios/" + u.id + "/ativo", {
+        method: "POST", corpo: { ativo: !u.ativo }
+      }).then(function (r) {
+        Bio.aviso("#recado", u.nome + (r.ativo ? " reativado." : " desativado."), "ok");
+        carregar();
+      }).catch(function (e) {
+        Bio.ocupado(btn, false);
+        Bio.aviso("#recado", e.message);
+      });
+    });
+
+    acoes.append(rot, sel, btn);
+    div.appendChild(acoes);
+    return div;
+  }
+
+  function carregar() {
+    lista.className = "carregando";
+    lista.textContent = "Carregando";
+    var q = [];
+    if (filtro.value) q.push("papel=" + encodeURIComponent(filtro.value));
+    if (busca.value.trim()) q.push("busca=" + encodeURIComponent(busca.value.trim()));
+    Bio.api("/api/admin/usuarios" + (q.length ? "?" + q.join("&") : ""))
+      .then(function (d) {
+        Object.keys(d.resumo).forEach(function (k) {
+          var el = document.getElementById("n-" + k);
+          if (el) el.textContent = Bio.inteiro(d.resumo[k]);
+        });
+        lista.className = "";
+        lista.innerHTML = "";
+        if (!d.usuarios.length) {
+          lista.className = "vazio";
+          lista.textContent = "Nenhum usuário com esse filtro.";
+          return;
+        }
+        d.usuarios.forEach(function (u) { lista.appendChild(cartao(u)); });
+      }).catch(function (e) { Bio.aviso("#recado", e.message); });
+  }
+
+  /* ------------------------------------------- criar acesso compartilhável */
+  var formConta = document.getElementById("form-conta");
+  var btnCriar = document.getElementById("btn-criar");
+  var painel = document.getElementById("credencial");
+
+  function mostrarCredencial(r) {
+    painel.hidden = false;
+    painel.innerHTML = "";
+
+    var ok = document.createElement("div");
+    ok.className = "recado recado-ok";
+    ok.textContent = "Acesso criado para " + r.usuario.nome + " (" +
+      PAPEL[r.usuario.papel].toLowerCase() + ").";
+    painel.appendChild(ok);
+
+    var caixa = document.createElement("div");
+    caixa.className = "cartao";
+    caixa.style.marginTop = "0.75rem";
+
+    var dl = document.createElement("dl");
+    dl.className = "definicoes";
+    [["E-mail", r.usuario.email], ["Senha", r.senha]].forEach(function (par) {
+      var d = document.createElement("div");
+      var dt = document.createElement("dt"); dt.textContent = par[0];
+      var dd = document.createElement("dd");
+      dd.textContent = par[1];
+      dd.style.fontFamily = "var(--fonte-dados)";
+      dd.style.userSelect = "all";
+      d.append(dt, dd); dl.appendChild(d);
+    });
+    caixa.appendChild(dl);
+
+    var copiar = document.createElement("button");
+    copiar.type = "button";
+    copiar.className = "botao botao-mini botao-claro";
+    copiar.style.marginTop = "0.75rem";
+    copiar.textContent = "Copiar e-mail e senha";
+    copiar.addEventListener("click", function () {
+      var texto = "Bionalya — " + location.origin + "/login.html\n" +
+        "E-mail: " + r.usuario.email + "\nSenha: " + r.senha;
+      function feito() { copiar.textContent = "Copiado"; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(feito, function () {
+          copiar.textContent = "Selecione e copie acima";
+        });
+      } else {
+        copiar.textContent = "Selecione e copie acima";
+      }
+    });
+    caixa.appendChild(copiar);
+    painel.appendChild(caixa);
+
+    var al = document.createElement("div");
+    al.className = "recado recado-erro";
+    al.style.marginTop = "0.75rem";
+    al.textContent = r.aviso;
+    painel.appendChild(al);
+  }
+
+  formConta.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    Bio.aviso("#recado", null);
+    painel.hidden = true;
+
+    var nome = document.getElementById("c-nome").value.trim();
+    var email = document.getElementById("c-email").value.trim();
+    var senha = document.getElementById("c-senha").value;
+    if (nome.length < 3 || !email) {
+      Bio.aviso("#recado", "Preencha o nome e o e-mail."); return;
+    }
+    if (senha && senha.length < 8) {
+      Bio.aviso("#recado", "A senha precisa de pelo menos 8 caracteres."); return;
+    }
+
+    Bio.ocupado(btnCriar, true, "Criando…");
+    Bio.api("/api/admin/usuarios", { method: "POST", corpo: {
+      nome: nome, email: email,
+      papel: document.getElementById("c-papel").value,
+      senha: senha || null
+    }}).then(function (r) {
+      Bio.ocupado(btnCriar, false);
+      formConta.reset();
+      mostrarCredencial(r);
+      carregar();
+    }).catch(function (e) {
+      Bio.ocupado(btnCriar, false);
+      Bio.aviso("#recado", e.message);
+    });
+  });
+
+  busca.addEventListener("input", function () {
+    clearTimeout(espera);
+    espera = setTimeout(carregar, 300);
+  });
+  filtro.addEventListener("change", carregar);
+
+  Bio.exigirLogin({ papel: "admin" }).then(function (u) {
+    eu = u;
+    carregar();
+  }).catch(function (e) {
+    if (e && e.message !== "sem sessão" && e.message !== "sem permissão") {
+      Bio.aviso("#recado", e.message);
+    }
+  });
+});
+</script>
+
+</body>
+</html>

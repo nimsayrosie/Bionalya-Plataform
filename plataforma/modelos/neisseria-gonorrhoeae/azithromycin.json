@@ -1,0 +1,386 @@
+{
+  "id": "azithromycin",
+  "base_id": "neisseria-gonorrhoeae",
+  "nome_base": "azithromycin",
+  "especie": "Neisseria gonorrhoeae",
+  "modelo_id": "xgboost",
+  "modelo_nome": "XGBoost",
+  "recomendado": "xgboost",
+  "padrao": "xgboost",
+  "disponiveis": [
+    {
+      "id": "xgboost",
+      "nome": "XGBoost",
+      "auc": 0.9445974900520355,
+      "sensibilidade": 0.7575757575757576,
+      "especificidade": 0.9292929292929293,
+      "falsos_negativos": 8
+    },
+    {
+      "id": "random_forest",
+      "nome": "Random Forest",
+      "auc": 0.9348025711662076,
+      "sensibilidade": 0.7575757575757576,
+      "especificidade": 0.9494949494949495,
+      "falsos_negativos": 8
+    },
+    {
+      "id": "regressao_logistica",
+      "nome": "Regressão Logística",
+      "auc": 0.9268441995714723,
+      "sensibilidade": 0.7575757575757576,
+      "especificidade": 0.9191919191919192,
+      "falsos_negativos": 8
+    },
+    {
+      "id": "rede_neural",
+      "nome": "Redes Neurais",
+      "auc": 0.45974900520355066,
+      "sensibilidade": 0.0,
+      "especificidade": 1.0,
+      "falsos_negativos": 33
+    }
+  ],
+  "versao": "65b6757e7cee",
+  "limiar": 0.5,
+  "treinado_em": "2026-11-01T21:01:55+00:00",
+  "features": [
+    "blaTEM",
+    "blaTEM-1",
+    "blaTEM-135",
+    "farB",
+    "folP_F31L",
+    "folP_R228S",
+    "gyrA_D95A",
+    "gyrA_D95G",
+    "gyrA_D95N",
+    "gyrA_S91F",
+    "mtrA",
+    "mtrC",
+    "mtrD_K823E",
+    "mtrR",
+    "mtrR_A-53del",
+    "mtrR_A39T",
+    "mtrR_G45D",
+    "norM",
+    "norM_C-104T",
+    "parC_D86N",
+    "parC_E91G",
+    "parC_E91K",
+    "parC_E91Q",
+    "parC_S87C",
+    "parC_S87N",
+    "parC_S87R",
+    "parC_S88P",
+    "pbp2",
+    "penA_A311V",
+    "penA_A501T",
+    "penA_A501V",
+    "penA_A510V",
+    "penA_A516G",
+    "penA_D346DD",
+    "penA_F504L",
+    "penA_G542S",
+    "penA_G545S",
+    "penA_I312M",
+    "penA_N512Y",
+    "penA_P551L",
+    "penA_P551S",
+    "penA_T483S",
+    "penA_V316T",
+    "ponA_L421P",
+    "porB1b_A121D",
+    "porB1b_A121G",
+    "porB1b_A121N",
+    "porB1b_A121S",
+    "porB1b_G120D",
+    "porB1b_G120K",
+    "porB1b_G120R",
+    "rplD_G70D",
+    "rpoB_H553N",
+    "rpsJ_V57M",
+    "tet(M)"
+  ],
+  "n_features": 55,
+  "n_total": 692,
+  "n_resistente": 112,
+  "n_sensivel": 580,
+  "n_treino": 560,
+  "n_teste": 132,
+  "n_clusters": 357,
+  "confianca": "alta",
+  "alerta": null,
+  "n_resistente_teste": 33,
+  "n_sensivel_teste": 99,
+  "metricas": {
+    "auc": 0.9445974900520355,
+    "sensibilidade": 0.7575757575757576,
+    "especificidade": 0.9292929292929293,
+    "falsos_negativos": 8,
+    "falsos_positivos": 7,
+    "verdadeiros_positivos": 25,
+    "verdadeiros_negativos": 92
+  },
+  "comparacao": [
+    {
+      "id": "regressao_logistica",
+      "nome": "Regressão Logística",
+      "auc": 0.9268441995714723,
+      "sensibilidade": 0.7575757575757576,
+      "especificidade": 0.9191919191919192,
+      "falsos_negativos": 8,
+      "falsos_positivos": 8,
+      "verdadeiros_positivos": 25,
+      "verdadeiros_negativos": 91
+    },
+    {
+      "id": "random_forest",
+      "nome": "Random Forest",
+      "auc": 0.9348025711662076,
+      "sensibilidade": 0.7575757575757576,
+      "especificidade": 0.9494949494949495,
+      "falsos_negativos": 8,
+      "falsos_positivos": 5,
+      "verdadeiros_positivos": 25,
+      "verdadeiros_negativos": 94
+    },
+    {
+      "id": "rede_neural",
+      "nome": "Redes Neurais",
+      "auc": 0.45974900520355066,
+      "sensibilidade": 0.0,
+      "especificidade": 1.0,
+      "falsos_negativos": 33,
+      "falsos_positivos": 0,
+      "verdadeiros_positivos": 0,
+      "verdadeiros_negativos": 99
+    },
+    {
+      "id": "xgboost",
+      "nome": "XGBoost",
+      "auc": 0.9445974900520355,
+      "sensibilidade": 0.7575757575757576,
+      "especificidade": 0.9292929292929293,
+      "falsos_negativos": 8,
+      "falsos_positivos": 7,
+      "verdadeiros_positivos": 25,
+      "verdadeiros_negativos": 92
+    }
+  ],
+  "validacao_cruzada": {
+    "folds": 5,
+    "auc_media": 0.8974436157668226,
+    "auc_desvio": 0.049419058507321874
+  },
+  "importancias": [
+    {
+      "gene": "tet(M)",
+      "peso": 0.15130367875099182
+    },
+    {
+      "gene": "mtrD_K823E",
+      "peso": 0.11581239849328995
+    },
+    {
+      "gene": "blaTEM-1",
+      "peso": 0.05067790299654007
+    },
+    {
+      "gene": "gyrA_D95N",
+      "peso": 0.04579863324761391
+    },
+    {
+      "gene": "mtrR_A39T",
+      "peso": 0.04257385805249214
+    },
+    {
+      "gene": "parC_S87C",
+      "peso": 0.03643563762307167
+    },
+    {
+      "gene": "porB1b_A121D",
+      "peso": 0.031065119430422783
+    },
+    {
+      "gene": "blaTEM-135",
+      "peso": 0.030476007610559464
+    },
+    {
+      "gene": "penA_A501T",
+      "peso": 0.02933099865913391
+    },
+    {
+      "gene": "parC_S88P",
+      "peso": 0.027393966913223267
+    },
+    {
+      "gene": "penA_V316T",
+      "peso": 0.026808109134435654
+    },
+    {
+      "gene": "parC_S87N",
+      "peso": 0.02643798291683197
+    }
+  ],
+  "importancias_por_modelo": {
+    "regressao_logistica": null,
+    "random_forest": [
+      {
+        "gene": "mtrD_K823E",
+        "peso": 0.2772236968470399
+      },
+      {
+        "gene": "mtrR_A39T",
+        "peso": 0.10517033125249896
+      },
+      {
+        "gene": "tet(M)",
+        "peso": 0.09412262638892996
+      },
+      {
+        "gene": "ponA_L421P",
+        "peso": 0.06085738412086246
+      },
+      {
+        "gene": "porB1b_A121D",
+        "peso": 0.04396274460326475
+      },
+      {
+        "gene": "blaTEM-1",
+        "peso": 0.03619008834129277
+      },
+      {
+        "gene": "porB1b_A121S",
+        "peso": 0.03145333932234784
+      },
+      {
+        "gene": "parC_S87R",
+        "peso": 0.022678327988721977
+      },
+      {
+        "gene": "mtrR_A-53del",
+        "peso": 0.022203140755750753
+      },
+      {
+        "gene": "gyrA_S91F",
+        "peso": 0.02142206057652369
+      },
+      {
+        "gene": "rpoB_H553N",
+        "peso": 0.021146644603779928
+      },
+      {
+        "gene": "rpsJ_V57M",
+        "peso": 0.018620482730396973
+      }
+    ],
+    "rede_neural": null,
+    "xgboost": [
+      {
+        "gene": "tet(M)",
+        "peso": 0.15130367875099182
+      },
+      {
+        "gene": "mtrD_K823E",
+        "peso": 0.11581239849328995
+      },
+      {
+        "gene": "blaTEM-1",
+        "peso": 0.05067790299654007
+      },
+      {
+        "gene": "gyrA_D95N",
+        "peso": 0.04579863324761391
+      },
+      {
+        "gene": "mtrR_A39T",
+        "peso": 0.04257385805249214
+      },
+      {
+        "gene": "parC_S87C",
+        "peso": 0.03643563762307167
+      },
+      {
+        "gene": "porB1b_A121D",
+        "peso": 0.031065119430422783
+      },
+      {
+        "gene": "blaTEM-135",
+        "peso": 0.030476007610559464
+      },
+      {
+        "gene": "penA_A501T",
+        "peso": 0.02933099865913391
+      },
+      {
+        "gene": "parC_S88P",
+        "peso": 0.027393966913223267
+      },
+      {
+        "gene": "penA_V316T",
+        "peso": 0.026808109134435654
+      },
+      {
+        "gene": "parC_S87N",
+        "peso": 0.02643798291683197
+      }
+    ]
+  },
+  "pesos_explicacao": {
+    "blaTEM": -0.33761120174667353,
+    "blaTEM-1": -0.848000863617761,
+    "blaTEM-135": -1.5985281843348862,
+    "farB": -0.0009231242600375505,
+    "folP_F31L": -0.39895913744478184,
+    "folP_R228S": 1.1045124614964674,
+    "gyrA_D95A": 0.5915609947556673,
+    "gyrA_D95G": -0.08199051929466251,
+    "gyrA_D95N": -0.4587383315247794,
+    "gyrA_S91F": 0.4655084196510661,
+    "mtrA": -0.0009231242600375505,
+    "mtrC": -0.0009231242600375505,
+    "mtrD_K823E": 3.1691429991550812,
+    "mtrR": 0.25027118628110123,
+    "mtrR_A-53del": 0.5580376280884843,
+    "mtrR_A39T": -1.391402107000479,
+    "mtrR_G45D": -0.21210974147493053,
+    "norM": -0.0009231242600375505,
+    "norM_C-104T": -0.7080904961157037,
+    "parC_D86N": 0.747043313294203,
+    "parC_E91G": -0.4746062591194865,
+    "parC_E91K": -0.21224237296065196,
+    "parC_E91Q": -0.18306208856885797,
+    "parC_S87C": 1.396001312416398,
+    "parC_S87N": -0.975143599665058,
+    "parC_S87R": 0.9163925422616331,
+    "parC_S88P": -0.4234754380582195,
+    "pbp2": 0.5015968050239559,
+    "penA_A311V": 0.6418454039660322,
+    "penA_A501T": 0.3521257406524995,
+    "penA_A501V": -1.0306597408420843,
+    "penA_A510V": 0.5295133609146135,
+    "penA_A516G": 0.5591834744714511,
+    "penA_D346DD": 0.4783775578992431,
+    "penA_F504L": 0.5295133609146135,
+    "penA_G542S": -0.40210456690844903,
+    "penA_G545S": 0.17588368953674793,
+    "penA_I312M": -0.1732908082606976,
+    "penA_N512Y": 0.17588368953674793,
+    "penA_P551L": 0.6189076566397012,
+    "penA_P551S": 0.2697065596794678,
+    "penA_T483S": 0.6187631141287097,
+    "penA_V316T": -0.1732908082606976,
+    "ponA_L421P": 0.030705227075144358,
+    "porB1b_A121D": -1.2076645104329857,
+    "porB1b_A121G": 0.23230171044509432,
+    "porB1b_A121N": 0.4829467232271514,
+    "porB1b_A121S": 0.44500483382938744,
+    "porB1b_G120D": -0.54633149045368,
+    "porB1b_G120K": -0.3444850962420453,
+    "porB1b_G120R": -0.24811228559292528,
+    "rplD_G70D": -0.9621579331163512,
+    "rpoB_H553N": -0.8881428647276728,
+    "rpsJ_V57M": -0.9476819139313124,
+    "tet(M)": -1.978799665404897
+  }
+}

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Resultado da análise</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html" aria-current="page">Nova análise</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="isolados.html">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
+      <li><a href="conta.html">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Resultado da análise</h1>
+    <p id="subtitulo">—</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+
+  <div id="tudo" hidden>
+
+    <section class="cartao cartao-rosa" aria-labelledby="t-previsao">
+      <h2 id="t-previsao">Previsão</h2>
+
+      <p style="margin-top:1rem">
+        <span class="etiqueta" id="etiqueta-classe">—</span>
+      </p>
+
+      <p style="margin-top:1.5rem">
+        <span class="rotulo">Probabilidade de resistência</span>
+        <span class="numero" style="font-size:2.5rem" id="probabilidade">—</span>
+      </p>
+
+      <div class="barra barra-rosa" style="max-width:34rem;margin-top:0.5rem"
+           role="img" id="barra-prob" aria-label="Probabilidade de resistência">
+        <span id="barra-dentro" style="width:0%"></span>
+      </div>
+
+      <p class="ajuda" style="margin-top:1rem;color:var(--roxo-suave)" id="texto-limiar"></p>
+    </section>
+
+    <section class="secao" aria-labelledby="t-genes">
+      <h2 id="t-genes">O que pesou nessa decisão</h2>
+      <p style="color:var(--roxo-suave);margin-bottom:1rem" id="texto-explicacao"></p>
+
+      <div class="cartao">
+        <div id="contribuicoes"></div>
+      </div>
+
+      <p class="ajuda" style="margin-top:1rem;color:var(--roxo-suave)">
+        Valores positivos empurram para resistente; negativos, para sensível.
+        Só os genes presentes no isolado aparecem — ausência não contribui.
+      </p>
+
+      <div class="recado recado-info" id="ignorados" hidden></div>
+    </section>
+
+    <section class="secao" aria-labelledby="t-confianca">
+      <h2 id="t-confianca">Confiabilidade do modelo usado</h2>
+      <div class="grade grade-3">
+        <div class="cartao">
+          <span class="rotulo">AUC no teste</span>
+          <span class="numero" id="m-auc">—</span>
+        </div>
+        <div class="cartao">
+          <span class="rotulo">Sensibilidade</span>
+          <span class="numero" id="m-sens">—</span>
+        </div>
+        <div class="cartao">
+          <span class="rotulo">Treinado com</span>
+          <span class="numero" id="m-treino">—</span>
+          <span class="ajuda">isolados</span>
+        </div>
+      </div>
+      <p class="ajuda" style="margin-top:0.75rem;color:var(--roxo-suave)" id="versao-modelo"></p>
+    </section>
+
+    <div class="aviso" id="bloco-alerta" hidden>
+      <span class="etiqueta etiqueta-resistente" aria-hidden="true">Cuidado</span>
+      <div>
+        <strong>Este modelo tem base pequena</strong>
+        <p id="texto-alerta"></p>
+      </div>
+    </div>
+
+    <div class="aviso">
+      <span class="etiqueta etiqueta-resistente" aria-hidden="true">Atenção</span>
+      <div>
+        <strong>Protótipo de pesquisa, sem validação clínica</strong>
+        <p id="texto-aviso"></p>
+      </div>
+    </div>
+
+    <p style="margin-top:2rem">
+      <a class="botao" href="nova-analise.html">Analisar outro isolado</a>
+      <a class="botao botao-claro" href="modelos.html">Ver comparação dos modelos</a>
+    </p>
+
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  Bio.exigirLogin().then(function () {
+    var r = Bio.lerResultado();
+    if (!r) {
+      Bio.aviso("#recado",
+        "Nenhuma análise para mostrar. Comece uma nova análise para ver o resultado aqui.",
+        "info");
+      return;
+    }
+
+    document.getElementById("tudo").hidden = false;
+
+    var sub = document.getElementById("subtitulo");
+    sub.innerHTML = "";
+    var em = document.createElement("em");
+    em.textContent = r.especie;
+    sub.append(em, document.createTextNode(
+      " · " + r.nome_antibiotico + " · modelo " + r.modelo.nome));
+
+    var resistente = r.classe === "resistente";
+    var et = document.getElementById("etiqueta-classe");
+    et.textContent = resistente ? "Resistente" : "Sensível";
+    et.className = "etiqueta " + (resistente ? "etiqueta-resistente" : "etiqueta-sensivel");
+
+    document.getElementById("probabilidade").textContent = Bio.pct(r.probabilidade);
+    var largura = Math.round(r.probabilidade * 100);
+    document.getElementById("barra-dentro").style.width = largura + "%";
+    document.getElementById("barra-prob").setAttribute("aria-label",
+      "Probabilidade de resistência: " + Bio.pct(r.probabilidade));
+    document.getElementById("texto-limiar").textContent =
+      "Limiar de decisão em " + Bio.pct(r.limiar, 0) + ". Acima disso o isolado é " +
+      "classificado como resistente.";
+
+    document.getElementById("texto-explicacao").textContent =
+      "Peso de cada gene presente no isolado, segundo a " + r.explicacao_por + ".";
+
+    var alvo = document.getElementById("contribuicoes");
+    alvo.innerHTML = "";
+    if (!r.contribuicoes.length) {
+      alvo.className = "vazio";
+      alvo.textContent = "Nenhum dos genes enviados é conhecido por este modelo.";
+    } else {
+      var maior = Math.max.apply(null, r.contribuicoes.map(function (c) {
+        return Math.abs(c.peso); })) || 1;
+      r.contribuicoes.forEach(function (c) {
+        var linha = document.createElement("div");
+        linha.className = "linha-metrica";
+
+        var nome = document.createElement("span");
+        nome.style.fontFamily = "var(--fonte-dados)";
+        nome.textContent = c.gene;
+
+        var barra = document.createElement("span");
+        barra.className = "barra " + (c.peso >= 0 ? "barra-rosa" : "barra-verde");
+        var dentro = document.createElement("span");
+        dentro.style.width = Math.max(4, Math.round(100 * Math.abs(c.peso) / maior)) + "%";
+        barra.appendChild(dentro);
+
+        var valor = document.createElement("span");
+        valor.className = "valor";
+        valor.textContent = Bio.sinal(c.peso);
+
+        linha.append(nome, barra, valor);
+        alvo.appendChild(linha);
+      });
+    }
+
+    if (r.genes_ignorados && r.genes_ignorados.length) {
+      var ig = document.getElementById("ignorados");
+      ig.hidden = false;
+      ig.textContent = "Ignorados por não serem variável deste modelo: " +
+        r.genes_ignorados.join(", ") + ".";
+    }
+
+    document.getElementById("m-auc").textContent = Bio.num(r.modelo.auc);
+    document.getElementById("m-sens").textContent = Bio.pct(r.modelo.sensibilidade);
+    document.getElementById("m-treino").textContent = Bio.inteiro(r.modelo.n_treino);
+    document.getElementById("versao-modelo").textContent =
+      "Modelo " + r.modelo.nome + ", versão " + r.modelo.versao + ", com " +
+      r.modelo.n_features + " genes como variáveis." +
+      (r.modelo.era_recomendado ? "" :
+       " Este não é o modelo recomendado pelo treino para este antibiótico.");
+
+    if (r.modelo.alerta) {
+      document.getElementById("bloco-alerta").hidden = false;
+      document.getElementById("texto-alerta").textContent = r.modelo.alerta;
+    }
+    document.getElementById("texto-aviso").textContent = r.aviso;
+  }).catch(function (e) {
+    if (e && e.message !== "sem sessão") Bio.aviso("#recado", e.message);
+  });
+});
+</script>
+
+</body>
+</html>

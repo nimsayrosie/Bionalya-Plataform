@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Painel</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html" aria-current="page">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="isolados.html">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
+      <li><a href="conta.html">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Painel</h1>
+    <p>Previsão de resistência bacteriana a antibióticos a partir do perfil genético do
+       isolado, para apoio à pesquisa.</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+
+  <section aria-labelledby="t-base">
+    <h2 id="t-base" class="so-leitor">Resumo da base carregada</h2>
+    <div class="grade grade-4" id="cartoes-resumo">
+      <div class="cartao">
+        <span class="rotulo">Isolados na base</span>
+        <span class="numero" data-campo="total_isolados">—</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Com antibiograma</span>
+        <span class="numero" data-campo="com_ast">—</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Usáveis no treino</span>
+        <span class="numero" data-campo="usaveis">—</span>
+      </div>
+      <div class="cartao">
+        <span class="rotulo">Genes como features</span>
+        <span class="numero" data-campo="n_features">—</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao">
+    <div class="grade grade-2">
+      <div class="cartao cartao-rosa">
+        <h2>Analisar um isolado</h2>
+        <p>Informe quais genes de resistência o isolado carrega e receba a probabilidade
+           prevista para o antibiótico escolhido.</p>
+        <p style="margin-top:1.5rem"><a class="botao" href="nova-analise.html">Começar análise</a></p>
+      </div>
+
+      <div class="cartao">
+        <h2>Base em uso</h2>
+        <dl class="definicoes" id="base-em-uso">
+          <div><dt>Fonte</dt><dd>NCBI Pathogen Detection</dd></div>
+          <div><dt>Espécie</dt><dd><em data-campo="especie">—</em></dd></div>
+          <div><dt>Antibióticos com modelo</dt><dd data-campo="n_antibioticos">—</dd></div>
+          <div><dt>Modelo de referência</dt><dd data-campo="modelo_ref">—</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao" aria-labelledby="t-antibioticos">
+    <h2 id="t-antibioticos">Antibióticos com modelo treinado</h2>
+    <p style="color:var(--roxo-suave);margin-bottom:1rem">
+      Cada um tem o seu próprio modelo, treinado só com os isolados que têm resultado
+      de laboratório para ele. A barra mostra quantos isolados sustentaram o treino.
+    </p>
+    <div class="cartao">
+      <div id="lista-antibioticos" class="carregando">Carregando</div>
+    </div>
+  </section>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-resistente" aria-hidden="true">Atenção</span>
+    <div>
+      <strong>Protótipo de pesquisa</strong>
+      <p>A Bionalya não é uma ferramenta validada clinicamente e não substitui o
+         antibiograma. Os resultados servem a estudo e comparação de modelos.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  Bio.exigirLogin().then(function () {
+    return Promise.all([Bio.api("/api/base/resumo"), Bio.api("/api/base/antibioticos")]);
+  }).then(function (r) {
+    var resumo = r[0], lista = r[1];
+
+    function por(campo, valor) {
+      var el = document.querySelector('[data-campo="' + campo + '"]');
+      if (el) el.textContent = valor;
+    }
+    por("total_isolados", Bio.inteiro(resumo.total_isolados));
+    por("com_ast", Bio.inteiro(resumo.com_ast));
+    por("usaveis", Bio.inteiro(resumo.usaveis));
+    por("n_features", Bio.inteiro(resumo.n_features));
+    por("especie", resumo.especie);
+    por("n_antibioticos", Bio.inteiro(resumo.n_antibioticos));
+
+    if (!resumo.base_disponivel) {
+      Bio.aviso("#recado", "A base do NCBI não está na pasta dados/. As previsões " +
+        "continuam funcionando com os modelos já treinados, mas não dá para treinar " +
+        "um antibiótico novo.", "info");
+    }
+
+    var alvo = document.getElementById("lista-antibioticos");
+    if (!lista.length) {
+      alvo.className = "vazio";
+      alvo.textContent = "Nenhum modelo treinado ainda.";
+      return;
+    }
+    // Referência é o modelo mais confiável, não o de maior AUC: a ceftriaxona
+    // marca 1,000 com 13 resistentes, e esse número não representa nada.
+    var ordem = { alta: 3, media: 2, baixa: 1 };
+    var melhor = lista.slice().sort(function (a, b) {
+      return (ordem[b.confianca] || 0) - (ordem[a.confianca] || 0) || b.auc - a.auc;
+    })[0];
+    por("modelo_ref", melhor.modelo + " — AUC " + Bio.num(melhor.auc));
+
+    var maior = Math.max.apply(null, lista.map(function (a) { return a.n_isolados; }));
+    alvo.className = "";
+    alvo.innerHTML = "";
+    lista.sort(function (a, b) { return b.n_isolados - a.n_isolados; }).forEach(function (a) {
+      var linha = document.createElement("div");
+      linha.className = "linha-metrica";
+
+      var nome = document.createElement("span");
+      nome.textContent = a.nome;
+      if (a.alerta) {
+        var s = document.createElement("span");
+        s.className = "etiqueta selo-baixa";
+        s.style.marginLeft = "0.5rem";
+        s.style.fontSize = "0.65rem";
+        s.textContent = "baixa confiança";
+        s.title = a.alerta;
+        nome.appendChild(s);
+      }
+
+      var barra = document.createElement("span");
+      barra.className = "barra";
+      var dentro = document.createElement("span");
+      dentro.style.width = Math.round(100 * a.n_isolados / maior) + "%";
+      barra.appendChild(dentro);
+
+      var valor = document.createElement("span");
+      valor.className = "valor";
+      valor.textContent = Bio.inteiro(a.n_isolados);
+
+      linha.append(nome, barra, valor);
+      alvo.appendChild(linha);
+    });
+  }).catch(function (e) {
+    if (e && e.message !== "sem sessão") Bio.aviso("#recado", e.message);
+  });
+});
+</script>
+
+</body>
+</html>

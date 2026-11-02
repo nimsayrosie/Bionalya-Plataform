@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Modelos</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="modelos.html" aria-current="page">Modelos</a></li>
+      <li><a href="isolados.html">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
+      <li><a href="conta.html">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Modelos</h1>
+    <p>Quatro algoritmos treinados sobre os mesmos dados e avaliados nos mesmos isolados
+       separados para teste. A separação é feita por cluster genético, para que bactérias
+       quase idênticas não apareçam nos dois conjuntos.</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+
+  <div class="campo" style="max-width:26rem">
+    <label for="antibiotico">Antibiótico</label>
+    <select id="antibiotico"><option>Carregando…</option></select>
+  </div>
+
+  <div id="tudo" hidden>
+
+    <div class="recado recado-erro" id="alerta" hidden></div>
+
+    <section aria-labelledby="t-comparacao">
+      <h2 id="t-comparacao" class="so-leitor">Comparação de desempenho</h2>
+      <div class="rolagem">
+        <table>
+          <caption class="so-leitor">Desempenho dos modelos no conjunto de teste</caption>
+          <thead>
+            <tr>
+              <th scope="col">Modelo</th>
+              <th scope="col">AUC</th>
+              <th scope="col">Sensibilidade</th>
+              <th scope="col">Especificidade</th>
+              <th scope="col">Falsos negativos</th>
+              <th scope="col">Situação</th>
+            </tr>
+          </thead>
+          <tbody id="corpo-tabela"></tbody>
+        </table>
+      </div>
+      <p class="ajuda" style="margin-top:0.75rem;color:var(--roxo-suave)" id="nota-treino"></p>
+    </section>
+
+    <section class="secao" aria-labelledby="t-genes-modelo">
+      <h2 id="t-genes-modelo">Genes mais importantes para o modelo</h2>
+      <p style="color:var(--roxo-suave);margin-bottom:1rem" id="nota-importancia"></p>
+      <div class="cartao">
+        <div id="importancias"></div>
+      </div>
+    </section>
+
+    <section class="secao" aria-labelledby="t-validacao">
+      <h2 id="t-validacao">Validação cruzada</h2>
+      <p style="color:var(--roxo-suave);margin-bottom:1rem" id="nota-cv"></p>
+      <div class="grade grade-3" id="cartoes-cv"></div>
+    </section>
+
+  </div>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-resistente" aria-hidden="true">Leia antes</span>
+    <div>
+      <strong>Nem todo antibiótico é igualmente previsível</strong>
+      <p>A resistência ao ciprofloxacino depende de poucas mutações bem conhecidas em
+         gyrA e parC, o que explica o desempenho alto. Outros antibióticos têm mecanismos
+         multifatoriais, ou têm poucos isolados resistentes na base, e por isso são bem
+         mais difíceis de prever.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var sel = document.getElementById("antibiotico");
+  var tudo = document.getElementById("tudo");
+
+  function celula(texto, classe) {
+    var td = document.createElement("td");
+    td.textContent = texto;
+    if (classe) td.className = classe;
+    return td;
+  }
+
+  function desenhar(d) {
+    tudo.hidden = false;
+
+    var alerta = document.getElementById("alerta");
+    alerta.hidden = !d.alerta;
+    if (d.alerta) alerta.textContent = d.alerta;
+
+    var corpo = document.getElementById("corpo-tabela");
+    corpo.innerHTML = "";
+    d.comparacao.slice().sort(function (a, b) {
+      return (b.auc || 0) - (a.auc || 0);
+    }).forEach(function (m) {
+      var tr = document.createElement("tr");
+      var th = document.createElement("th");
+      th.scope = "row"; th.textContent = m.nome;
+      tr.appendChild(th);
+
+      if (m.erro) {
+        var td = celula("não treinou: " + m.erro);
+        td.colSpan = 5;
+        tr.appendChild(td);
+      } else {
+        tr.append(
+          celula(Bio.num(m.auc), "dado"),
+          celula(Bio.pct(m.sensibilidade), "dado"),
+          celula(Bio.pct(m.especificidade), "dado"),
+          celula(String(m.falsos_negativos), "dado"));
+        var tdSit = document.createElement("td");
+        var sp = document.createElement("span");
+        var usado = m.id === d.escolhido;
+        sp.className = "etiqueta " + (usado ? "etiqueta-neutra" : "etiqueta-sensivel");
+        sp.textContent = usado ? "Em uso" : "Avaliado";
+        tdSit.appendChild(sp);
+        tr.appendChild(tdSit);
+      }
+      corpo.appendChild(tr);
+    });
+
+    document.getElementById("nota-treino").textContent =
+      d.n_treino + " isolados no treino e " + d.n_teste + " no teste, distribuídos em " +
+      Bio.inteiro(d.n_clusters) + " clusters genéticos. Limiar de decisão em " +
+      Bio.pct(d.limiar, 0) + ".";
+
+    var imp = document.getElementById("importancias");
+    imp.innerHTML = "";
+    var nota = document.getElementById("nota-importancia");
+    if (!d.importancias.length) {
+      nota.textContent = "O modelo em uso não expõe importância por variável.";
+      imp.className = "vazio";
+      imp.textContent = "Sem importâncias para mostrar neste modelo.";
+    } else {
+      imp.className = "";
+      nota.textContent = "Peso de cada gene na decisão, segundo o modelo em uso.";
+      var maior = d.importancias[0].peso || 1;
+      d.importancias.forEach(function (g) {
+        var linha = document.createElement("div");
+        linha.className = "linha-metrica";
+        var nome = document.createElement("span");
+        nome.style.fontFamily = "var(--fonte-dados)";
+        nome.textContent = g.gene;
+        var barra = document.createElement("span");
+        barra.className = "barra";
+        var dentro = document.createElement("span");
+        dentro.style.width = Math.max(3, Math.round(100 * g.peso / maior)) + "%";
+        barra.appendChild(dentro);
+        var valor = document.createElement("span");
+        valor.className = "valor";
+        valor.textContent = Bio.pct(g.peso, 0);
+        linha.append(nome, barra, valor);
+        imp.appendChild(linha);
+      });
+    }
+
+    var cv = d.validacao_cruzada || {};
+    var cartoes = document.getElementById("cartoes-cv");
+    cartoes.innerHTML = "";
+    if (!cv.folds) {
+      document.getElementById("nota-cv").textContent =
+        "Não foi possível rodar validação cruzada: a classe minoritária é pequena demais " +
+        "para dividir em folds respeitando os clusters.";
+    } else {
+      document.getElementById("nota-cv").textContent =
+        "A divisão entre treino e teste foi repetida " + cv.folds + " vezes, sempre " +
+        "respeitando os clusters genéticos.";
+      [["AUC média", Bio.num(cv.auc_media), "nas " + cv.folds + " repetições"],
+       ["Variação", "± " + Bio.num(cv.auc_desvio), "desvio padrão"],
+       ["AUC no teste", Bio.num((d.comparacao.find(function (m) {
+          return m.id === d.escolhido; }) || {}).auc), "divisão principal"]
+      ].forEach(function (c) {
+        var div = document.createElement("div");
+        div.className = "cartao";
+        var r = document.createElement("span"); r.className = "rotulo"; r.textContent = c[0];
+        var n = document.createElement("span"); n.className = "numero"; n.textContent = c[1];
+        var a = document.createElement("span"); a.className = "ajuda"; a.textContent = c[2];
+        div.append(r, n, a);
+        cartoes.appendChild(div);
+      });
+    }
+  }
+
+  function carregar(id) {
+    tudo.hidden = true;
+    Bio.api("/api/modelos" + (id ? "?antibiotico=" + encodeURIComponent(id) : ""))
+      .then(desenhar)
+      .catch(function (e) { Bio.aviso("#recado", e.message); });
+  }
+
+  sel.addEventListener("change", function () { carregar(sel.value); });
+
+  Bio.exigirLogin().then(function () {
+    return Bio.api("/api/base/antibioticos");
+  }).then(function (lista) {
+    if (!lista.length) {
+      Bio.aviso("#recado", "Nenhum modelo treinado ainda.", "info");
+      sel.disabled = true;
+      sel.innerHTML = "<option>—</option>";
+      return;
+    }
+    // Ordena por confiança antes de AUC: abrir a tela na ceftriaxona, que marca
+    // 1,000 com 13 resistentes, dá a impressão errada do que a plataforma faz.
+    var ordem = { alta: 3, media: 2, baixa: 1 };
+    var varias = new Set(lista.map(function (a) { return a.base_id; })).size > 1;
+    sel.innerHTML = "";
+    lista.sort(function (a, b) {
+      return (ordem[b.confianca] || 0) - (ordem[a.confianca] || 0) || b.auc - a.auc;
+    }).forEach(function (a) {
+      var o = document.createElement("option");
+      o.value = a.id;
+      o.textContent = a.nome + " — " + a.modelo + ", AUC " + Bio.num(a.auc) +
+        (varias ? "  ·  " + a.especie : "");
+      sel.appendChild(o);
+    });
+    carregar(sel.value);
+  }).catch(function (e) {
+    if (e && e.message !== "sem sessão") Bio.aviso("#recado", e.message);
+  });
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Banco e credenciais locais — nunca sobem
+bionalya.db
+PRIMEIRO-ACESSO.txt
+acessos.txt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Os modelos treinados VÃO para o repositório, de propósito: sem eles a
+# hospedagem subiria sem nenhum antibiótico, e treinar na nuvem exigiria a
+# base completa de 32 MB. São ~11 MB em modelos/<base>/.

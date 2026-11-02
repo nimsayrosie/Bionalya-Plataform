@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Acesso não liberado</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<div class="barra-acesso">
+  <a href="inicio.html">← Sobre a plataforma</a>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</div>
+
+<main class="acesso">
+
+  <div class="acesso-marca">
+    <a href="inicio.html"><img src="assets/bionalya-logo.svg" alt=""></a>
+    <strong>Bionalya</strong>
+  </div>
+
+  <div class="cartao estado-centro">
+    <span class="etiqueta etiqueta-resistente">Não liberado</span>
+    <h1 style="font-size:1.75rem;margin-top:0.5rem">Seu acesso não foi liberado</h1>
+    <p style="margin-top:1rem">
+      A equipe analisou sua solicitação e não liberou o acesso desta vez.
+    </p>
+  </div>
+
+  <section class="secao" style="margin-top:2rem">
+    <h2 style="font-size:1.25rem;margin-bottom:1rem">O que costuma acontecer</h2>
+    <div class="cartao">
+      <dl class="definicoes">
+        <div>
+          <dt>E-mail não institucional</dt>
+          <dd>o mais comum</dd>
+        </div>
+        <div>
+          <dt>Finalidade muito vaga</dt>
+          <dd>duas ou três linhas bastam</dd>
+        </div>
+        <div>
+          <dt>Vínculo que a equipe não conseguiu conferir</dt>
+          <dd>vale explicar</dd>
+        </div>
+      </dl>
+    </div>
+    <p class="ajuda" style="margin-top:1rem;color:var(--roxo-suave)">
+      Nenhuma dessas é definitiva. Se você acha que foi um engano, responda o e-mail que
+      recebeu explicando seu vínculo, ou peça a alguém da equipe que já tem acesso para
+      indicar você.
+    </p>
+  </section>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-neutra" aria-hidden="true">Por que existe conferência</span>
+    <div>
+      <strong>A plataforma dá previsão sobre tratamento</strong>
+      <p>Por isso o cadastro não é automático. Não é desconfiança de quem pede: é que
+         um resultado de resistência a antibiótico, lido fora de contexto, pode orientar
+         uma decisão errada.</p>
+    </div>
+  </div>
+
+  <p class="alternativa" style="margin-top:2rem">
+    <a class="botao botao-claro" href="login.html">Voltar para a entrada</a>
+  </p>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Antibióticos</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="isolados.html">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html" aria-current="page">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
+      <li><a href="conta.html">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Antibióticos</h1>
+    <p>Cada antibiótico tem o seu próprio modelo, treinado só com os isolados que têm
+       resultado de laboratório para ele. Aqui dá para ver os que já existem e treinar
+       um novo a partir da base.</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+
+  <section aria-labelledby="t-ativos">
+    <h2 id="t-ativos">Com modelo treinado</h2>
+    <p style="color:var(--roxo-suave);margin-top:0.5rem">
+      Os quatro algoritmos ficam treinados e guardados para cada antibiótico de cada
+      base. O que você escolher aqui é o que responde por padrão — quem analisa ainda
+      pode trocar na hora.
+    </p>
+    <div class="rolagem" style="margin-top:1rem">
+      <table>
+        <caption class="so-leitor">Antibióticos com modelo treinado</caption>
+        <thead>
+          <tr>
+            <th scope="col">Antibiótico</th>
+            <th scope="col">Base</th>
+            <th scope="col">Modelo que responde</th>
+            <th scope="col">AUC</th>
+            <th scope="col">Isolados</th>
+            <th scope="col">Genes</th>
+            <th scope="col">Confiança</th>
+          </tr>
+        </thead>
+        <tbody id="corpo-ativos"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="secao" aria-labelledby="t-novo">
+    <h2 id="t-novo">Treinar um antibiótico novo</h2>
+    <p style="color:var(--roxo-suave);margin-bottom:1rem">
+      A lista abaixo vem da própria base: são os antibióticos que aparecem na coluna de
+      antibiograma. Só dá para treinar os que têm isolados suficientes nas duas classes.
+    </p>
+
+    <div class="grade grade-2">
+      <div class="cartao">
+        <h3>Escolha da base</h3>
+        <form id="form-treino" style="margin-top:1.25rem" novalidate>
+          <div class="campo">
+            <label for="base">Base de dados</label>
+            <select id="base"><option>Carregando…</option></select>
+            <span class="ajuda">
+              Cada base treina os seus próprios modelos. Para importar outra, use a tela
+              <a href="bases.html">Bases</a>.
+            </span>
+          </div>
+
+          <div class="campo">
+            <label for="candidato">Antibiótico</label>
+            <select id="candidato" required><option>Carregando…</option></select>
+            <span class="ajuda" id="ajuda-candidato"></span>
+          </div>
+
+          <div class="campo">
+            <label for="nome_exibicao">Nome que aparece na plataforma</label>
+            <input type="text" id="nome_exibicao" placeholder="ex.: Tetraciclina">
+            <span class="ajuda">Deixe em branco para usar a tradução automática.</span>
+          </div>
+
+          <div class="campo">
+            <label for="limiar">Limiar de decisão</label>
+            <input type="number" id="limiar" value="0.5" min="0.05" max="0.95" step="0.05">
+            <span class="ajuda">
+              Acima dele o isolado é classificado como resistente. Abaixar o limiar faz o
+              modelo errar menos para o lado perigoso (dizer “sensível” para uma bactéria
+              resistente), ao custo de mais alarmes falsos.
+            </span>
+          </div>
+
+          <button class="botao" type="submit" id="btn-treinar">Treinar modelo</button>
+        </form>
+      </div>
+
+      <div class="cartao" id="painel-resultado">
+        <h3>O que vai acontecer</h3>
+        <p style="color:var(--roxo-suave);margin-top:0.75rem;font-size:var(--t-sm)">
+          A plataforma separa treino e teste por cluster genético, ajusta quatro
+          algoritmos (regressão logística, random forest, XGBoost e rede neural), escolhe
+          o de melhor AUC e roda validação cruzada. Leva alguns segundos.
+        </p>
+        <div id="saida-treino" style="margin-top:1rem"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="secao" aria-labelledby="t-fora">
+    <h2 id="t-fora">Na base, mas fora do alcance</h2>
+    <p style="color:var(--roxo-suave);margin-bottom:1rem">
+      Estes aparecem no antibiograma mas não dão para treinar. O motivo está na coluna da
+      direita — quase sempre é falta de isolados resistentes, não falta de algoritmo.
+    </p>
+    <div class="cartao">
+      <div id="lista-fora"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var selCand = document.getElementById("candidato");
+  var ajuda = document.getElementById("ajuda-candidato");
+  var form = document.getElementById("form-treino");
+  var btn = document.getElementById("btn-treinar");
+  var saida = document.getElementById("saida-treino");
+  var candidatos = [];
+
+  var SELO = { alta: "selo-alta", media: "selo-media", baixa: "selo-baixa" };
+
+  function celula(texto, classe) {
+    var td = document.createElement("td");
+    td.textContent = texto;
+    if (classe) td.className = classe;
+    return td;
+  }
+
+  function carregarAtivos() {
+    return Bio.api("/api/base/antibioticos").then(function (lista) {
+      var corpo = document.getElementById("corpo-ativos");
+      corpo.innerHTML = "";
+      if (!lista.length) {
+        var tr = document.createElement("tr");
+        var td = celula("Nenhum modelo treinado ainda.");
+        td.colSpan = 7;
+        tr.appendChild(td); corpo.appendChild(tr);
+        return;
+      }
+      var ordem = { alta: 3, media: 2, baixa: 1 };
+      lista.sort(function (a, b) {
+        return (ordem[b.confianca] || 0) - (ordem[a.confianca] || 0) || b.auc - a.auc;
+      }).forEach(function (a) {
+        var tr = document.createElement("tr");
+        var th = document.createElement("th");
+        th.scope = "row"; th.textContent = a.nome;
+
+        var tdBase = document.createElement("td");
+        tdBase.textContent = a.especie;
+        tdBase.style.fontSize = "var(--t-xs)";
+        tdBase.style.color = "var(--roxo-suave)";
+
+        // Select de modelo padrão, direto na linha
+        var tdMod = document.createElement("td");
+        var sel = document.createElement("select");
+        sel.setAttribute("aria-label", "Modelo padrão de " + a.nome);
+        (a.modelos || []).forEach(function (m) {
+          var o = document.createElement("option");
+          o.value = m.id;
+          o.textContent = m.nome + " — " + Bio.num(m.auc) +
+            (m.id === a.recomendado ? " (recomendado)" : "");
+          sel.appendChild(o);
+        });
+        sel.value = a.modelo_padrao || a.recomendado;
+        sel.addEventListener("change", function () {
+          sel.disabled = true;
+          Bio.api("/api/antibioticos/" + a.id + "/padrao", {
+            method: "POST",
+            corpo: { modelo: sel.value === a.recomendado ? null : sel.value }
+          }).then(function (r) {
+            sel.disabled = false;
+            Bio.aviso("#recado", a.nome + " passa a responder com " +
+              (sel.options[sel.selectedIndex].textContent.split(" — ")[0]) + ".", "ok");
+            a.modelo_padrao = r.modelo_padrao;
+          }).catch(function (e) {
+            sel.disabled = false;
+            sel.value = a.modelo_padrao || a.recomendado;
+            Bio.aviso("#recado", e.message);
+          });
+        });
+        tdMod.appendChild(sel);
+
+        var escolhido = (a.modelos || []).find(function (m) {
+          return m.id === (a.modelo_padrao || a.recomendado); }) || {};
+
+        tr.append(th, tdBase, tdMod, celula(Bio.num(escolhido.auc), "dado"),
+                  celula(Bio.inteiro(a.n_isolados), "dado"),
+                  celula(String(a.n_features), "dado"));
+        var tdc = document.createElement("td");
+        var sp = document.createElement("span");
+        sp.className = "etiqueta " + (SELO[a.confianca] || "selo-baixa");
+        sp.textContent = a.confianca === "media" ? "média" : a.confianca;
+        if (a.alerta) sp.title = a.alerta;
+        tdc.appendChild(sp);
+        tr.appendChild(tdc);
+        corpo.appendChild(tr);
+      });
+    });
+  }
+
+  function carregarCandidatos() {
+    var base = document.getElementById("base").value;
+    if (!base) return Promise.resolve();
+    return Bio.api("/api/antibioticos/disponiveis?base=" + encodeURIComponent(base))
+      .then(function (d) {
+      var lista = d.antibioticos;
+      candidatos = lista;
+      var podem = lista.filter(function (a) { return a.treinavel; });
+      selCand.innerHTML = "";
+      if (!podem.length) {
+        selCand.innerHTML = "<option>Nenhum disponível</option>";
+        selCand.disabled = true; btn.disabled = true;
+      } else {
+        podem.forEach(function (a) {
+          var o = document.createElement("option");
+          o.value = a.nome_base;
+          o.textContent = a.nome + (a.ja_treinado ? " (já treinado — vai retreinar)" : "");
+          selCand.appendChild(o);
+        });
+        selCand.dispatchEvent(new Event("change"));
+      }
+
+      var fora = lista.filter(function (a) { return !a.treinavel; });
+      var alvo = document.getElementById("lista-fora");
+      alvo.innerHTML = "";
+      if (!fora.length) {
+        alvo.className = "vazio";
+        alvo.textContent = "Todos os antibióticos da base podem ser treinados.";
+        return;
+      }
+      alvo.className = "";
+      fora.forEach(function (a) {
+        var linha = document.createElement("div");
+        linha.className = "linha-metrica";
+        linha.style.gridTemplateColumns = "11rem 1fr";
+        var nome = document.createElement("span");
+        nome.textContent = a.nome;
+        var motivo = document.createElement("span");
+        motivo.style.color = "var(--roxo-suave)";
+        motivo.style.fontSize = "var(--t-sm)";
+        motivo.textContent = a.motivo || "—";
+        linha.append(nome, motivo);
+        alvo.appendChild(linha);
+      });
+    });
+  }
+
+  selCand.addEventListener("change", function () {
+    var a = candidatos.find(function (x) { return x.nome_base === selCand.value; });
+    if (!a) { ajuda.textContent = ""; return; }
+    ajuda.textContent = Bio.inteiro(a.n_resistente) + " resistentes e " +
+      Bio.inteiro(a.n_sensivel) + " sensíveis na base" +
+      (a.n_descartado ? " · " + Bio.inteiro(a.n_descartado) +
+        " descartados por serem I, NS ou ND" : "") + ".";
+    document.getElementById("nome_exibicao").placeholder = a.nome;
+  });
+
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    Bio.aviso("#recado", null);
+    saida.innerHTML = '<p class="carregando">Treinando, isso leva alguns segundos</p>';
+    Bio.ocupado(btn, true, "Treinando…");
+
+    Bio.api("/api/antibioticos/treinar", { method: "POST", corpo: {
+      antibiotico: selCand.value,
+      base: document.getElementById("base").value,
+      nome_exibicao: document.getElementById("nome_exibicao").value.trim() || null,
+      limiar: parseFloat(document.getElementById("limiar").value)
+    }}).then(function (r) {
+      Bio.ocupado(btn, false);
+      var m = r.metricas || {}, cv = r.validacao_cruzada || {};
+      saida.innerHTML = "";
+      var ok = document.createElement("div");
+      ok.className = "recado recado-ok";
+      ok.textContent = r.nome + " pronto: " + r.modelo + ", AUC " + Bio.num(m.auc) + ".";
+      saida.appendChild(ok);
+
+      var dl = document.createElement("dl");
+      dl.className = "definicoes";
+      [["Modelo escolhido", r.modelo],
+       ["AUC no teste", Bio.num(m.auc)],
+       ["Sensibilidade", Bio.pct(m.sensibilidade)],
+       ["Especificidade", Bio.pct(m.especificidade)],
+       ["Falsos negativos", String(m.falsos_negativos)],
+       ["Treino / teste", r.n_treino + " / " + r.n_teste],
+       ["Genes como variáveis", String(r.n_features)],
+       ["Validação cruzada", cv.folds
+          ? Bio.num(cv.auc_media) + " ± " + Bio.num(cv.auc_desvio) : "não foi possível"],
+       ["Versão", r.versao]
+      ].forEach(function (par) {
+        var d = document.createElement("div");
+        var dt = document.createElement("dt"); dt.textContent = par[0];
+        var dd = document.createElement("dd"); dd.textContent = par[1];
+        d.append(dt, dd); dl.appendChild(d);
+      });
+      saida.appendChild(dl);
+
+      if (r.alerta) {
+        var al = document.createElement("div");
+        al.className = "recado recado-erro";
+        al.style.marginTop = "1rem";
+        al.textContent = r.alerta;
+        saida.appendChild(al);
+      }
+      carregarAtivos();
+      carregarCandidatos();
+    }).catch(function (e) {
+      Bio.ocupado(btn, false);
+      saida.innerHTML = "";
+      Bio.aviso("#recado", e.message);
+    });
+  });
+
+  document.getElementById("base").addEventListener("change", function () {
+    carregarCandidatos().catch(function (e) { Bio.aviso("#recado", e.message); });
+  });
+
+  Bio.exigirLogin({ papel: "equipe" })
+    .then(function () { return Bio.api("/api/bases"); })
+    .then(function (bases) {
+      var sel = document.getElementById("base");
+      sel.innerHTML = "";
+      bases.filter(function (b) { return b.arquivo_presente; }).forEach(function (b) {
+        var o = document.createElement("option");
+        o.value = b.id; o.textContent = b.nome;
+        sel.appendChild(o);
+      });
+      if (!sel.options.length) {
+        sel.innerHTML = "<option>Nenhuma base com arquivo</option>";
+        sel.disabled = true;
+      }
+      sel.disabled = sel.disabled || bases.length < 2;
+      return Promise.all([carregarAtivos(), carregarCandidatos()]);
+    })
+    .catch(function (e) {
+      if (e && e.message !== "sem sessão" && e.message !== "sem permissão") {
+        Bio.aviso("#recado", e.message);
+      }
+    });
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,390 @@
+{
+  "id": "cefixime",
+  "base_id": "neisseria-gonorrhoeae",
+  "nome_base": "cefixime",
+  "especie": "Neisseria gonorrhoeae",
+  "modelo_id": "random_forest",
+  "modelo_nome": "Random Forest",
+  "recomendado": "random_forest",
+  "padrao": "random_forest",
+  "disponiveis": [
+    {
+      "id": "random_forest",
+      "nome": "Random Forest",
+      "auc": 0.6424418604651163,
+      "sensibilidade": 0.5,
+      "especificidade": 0.9767441860465116,
+      "falsos_negativos": 1
+    },
+    {
+      "id": "regressao_logistica",
+      "nome": "Regressão Logística",
+      "auc": 0.5813953488372092,
+      "sensibilidade": 0.5,
+      "especificidade": 0.936046511627907,
+      "falsos_negativos": 1
+    },
+    {
+      "id": "xgboost",
+      "nome": "XGBoost",
+      "auc": 0.5813953488372092,
+      "sensibilidade": 0.5,
+      "especificidade": 0.9825581395348837,
+      "falsos_negativos": 1
+    },
+    {
+      "id": "rede_neural",
+      "nome": "Redes Neurais",
+      "auc": 0.25290697674418605,
+      "sensibilidade": 0.0,
+      "especificidade": 1.0,
+      "falsos_negativos": 2
+    }
+  ],
+  "versao": "04d93a7ef5a3",
+  "limiar": 0.5,
+  "treinado_em": "2026-11-01T21:02:04+00:00",
+  "features": [
+    "23S_A2059G",
+    "blaTEM",
+    "blaTEM-1",
+    "blaTEM-135",
+    "farB",
+    "folP_F31L",
+    "folP_R228S",
+    "gyrA_D95A",
+    "gyrA_D95G",
+    "gyrA_D95N",
+    "gyrA_S91F",
+    "mtrA",
+    "mtrC",
+    "mtrD_K823E",
+    "mtrR",
+    "mtrR_A-53del",
+    "mtrR_A39T",
+    "mtrR_G45D",
+    "norM",
+    "norM_C-104T",
+    "parC_D86N",
+    "parC_E91G",
+    "parC_E91K",
+    "parC_E91Q",
+    "parC_S87C",
+    "parC_S87I",
+    "parC_S87N",
+    "parC_S87R",
+    "parC_S88P",
+    "pbp2",
+    "penA_A311V",
+    "penA_A501T",
+    "penA_A501V",
+    "penA_A510V",
+    "penA_A516G",
+    "penA_D346DD",
+    "penA_F504L",
+    "penA_G542S",
+    "penA_G545S",
+    "penA_I312M",
+    "penA_N512Y",
+    "penA_P551L",
+    "penA_P551S",
+    "penA_T483S",
+    "penA_V316T",
+    "ponA_L421P",
+    "porB1b_A121D",
+    "porB1b_A121G",
+    "porB1b_A121N",
+    "porB1b_A121S",
+    "porB1b_G120D",
+    "porB1b_G120K",
+    "porB1b_G120R",
+    "rplD_G70D",
+    "rpoB_H553N",
+    "rpsJ_V57M",
+    "tet(M)"
+  ],
+  "n_features": 57,
+  "n_total": 750,
+  "n_resistente": 23,
+  "n_sensivel": 727,
+  "n_treino": 576,
+  "n_teste": 174,
+  "n_clusters": 397,
+  "confianca": "baixa",
+  "alerta": "O conjunto de teste tem só 2 isolados resistentes. Com tão poucos, a AUC oscila muito de uma divisão para outra e não deve ser lida como medida confiável de desempenho.",
+  "n_resistente_teste": 2,
+  "n_sensivel_teste": 172,
+  "metricas": {
+    "auc": 0.6424418604651163,
+    "sensibilidade": 0.5,
+    "especificidade": 0.9767441860465116,
+    "falsos_negativos": 1,
+    "falsos_positivos": 4,
+    "verdadeiros_positivos": 1,
+    "verdadeiros_negativos": 168
+  },
+  "comparacao": [
+    {
+      "id": "regressao_logistica",
+      "nome": "Regressão Logística",
+      "auc": 0.5813953488372092,
+      "sensibilidade": 0.5,
+      "especificidade": 0.936046511627907,
+      "falsos_negativos": 1,
+      "falsos_positivos": 11,
+      "verdadeiros_positivos": 1,
+      "verdadeiros_negativos": 161
+    },
+    {
+      "id": "random_forest",
+      "nome": "Random Forest",
+      "auc": 0.6424418604651163,
+      "sensibilidade": 0.5,
+      "especificidade": 0.9767441860465116,
+      "falsos_negativos": 1,
+      "falsos_positivos": 4,
+      "verdadeiros_positivos": 1,
+      "verdadeiros_negativos": 168
+    },
+    {
+      "id": "rede_neural",
+      "nome": "Redes Neurais",
+      "auc": 0.25290697674418605,
+      "sensibilidade": 0.0,
+      "especificidade": 1.0,
+      "falsos_negativos": 2,
+      "falsos_positivos": 0,
+      "verdadeiros_positivos": 0,
+      "verdadeiros_negativos": 172
+    },
+    {
+      "id": "xgboost",
+      "nome": "XGBoost",
+      "auc": 0.5813953488372092,
+      "sensibilidade": 0.5,
+      "especificidade": 0.9825581395348837,
+      "falsos_negativos": 1,
+      "falsos_positivos": 3,
+      "verdadeiros_positivos": 1,
+      "verdadeiros_negativos": 169
+    }
+  ],
+  "validacao_cruzada": {
+    "folds": 5,
+    "auc_media": 0.8685451503700206,
+    "auc_desvio": 0.1543779922406343
+  },
+  "importancias": [
+    {
+      "gene": "penA_N512Y",
+      "peso": 0.10848816355895807
+    },
+    {
+      "gene": "penA_G545S",
+      "peso": 0.10019248806008517
+    },
+    {
+      "gene": "penA_D346DD",
+      "peso": 0.08921042974714016
+    },
+    {
+      "gene": "penA_I312M",
+      "peso": 0.08663608020080163
+    },
+    {
+      "gene": "penA_A516G",
+      "peso": 0.07893134126765927
+    },
+    {
+      "gene": "penA_V316T",
+      "peso": 0.07080197782388548
+    },
+    {
+      "gene": "parC_S88P",
+      "peso": 0.028295459931963574
+    },
+    {
+      "gene": "pbp2",
+      "peso": 0.02515737070232959
+    },
+    {
+      "gene": "porB1b_A121D",
+      "peso": 0.0240823834616896
+    },
+    {
+      "gene": "gyrA_D95N",
+      "peso": 0.02333849040792506
+    },
+    {
+      "gene": "parC_S87R",
+      "peso": 0.02285984852693801
+    },
+    {
+      "gene": "porB1b_A121G",
+      "peso": 0.02282598343867621
+    }
+  ],
+  "importancias_por_modelo": {
+    "regressao_logistica": null,
+    "random_forest": [
+      {
+        "gene": "penA_N512Y",
+        "peso": 0.10848816355895807
+      },
+      {
+        "gene": "penA_G545S",
+        "peso": 0.10019248806008517
+      },
+      {
+        "gene": "penA_D346DD",
+        "peso": 0.08921042974714016
+      },
+      {
+        "gene": "penA_I312M",
+        "peso": 0.08663608020080163
+      },
+      {
+        "gene": "penA_A516G",
+        "peso": 0.07893134126765927
+      },
+      {
+        "gene": "penA_V316T",
+        "peso": 0.07080197782388548
+      },
+      {
+        "gene": "parC_S88P",
+        "peso": 0.028295459931963574
+      },
+      {
+        "gene": "pbp2",
+        "peso": 0.02515737070232959
+      },
+      {
+        "gene": "porB1b_A121D",
+        "peso": 0.0240823834616896
+      },
+      {
+        "gene": "gyrA_D95N",
+        "peso": 0.02333849040792506
+      },
+      {
+        "gene": "parC_S87R",
+        "peso": 0.02285984852693801
+      },
+      {
+        "gene": "porB1b_A121G",
+        "peso": 0.02282598343867621
+      }
+    ],
+    "rede_neural": null,
+    "xgboost": [
+      {
+        "gene": "penA_D346DD",
+        "peso": 0.3723081946372986
+      },
+      {
+        "gene": "blaTEM-135",
+        "peso": 0.06692615896463394
+      },
+      {
+        "gene": "porB1b_A121N",
+        "peso": 0.06556644290685654
+      },
+      {
+        "gene": "penA_G545S",
+        "peso": 0.06081658974289894
+      },
+      {
+        "gene": "parC_E91G",
+        "peso": 0.05785060673952103
+      },
+      {
+        "gene": "penA_N512Y",
+        "peso": 0.054194822907447815
+      },
+      {
+        "gene": "penA_A516G",
+        "peso": 0.048370055854320526
+      },
+      {
+        "gene": "folP_R228S",
+        "peso": 0.02599918283522129
+      },
+      {
+        "gene": "penA_A311V",
+        "peso": 0.024094492197036743
+      },
+      {
+        "gene": "gyrA_D95G",
+        "peso": 0.023988181725144386
+      },
+      {
+        "gene": "rpsJ_V57M",
+        "peso": 0.01978759653866291
+      },
+      {
+        "gene": "folP_F31L",
+        "peso": 0.015771685168147087
+      }
+    ]
+  },
+  "pesos_explicacao": {
+    "23S_A2059G": 0.002825007458535165,
+    "blaTEM": -0.026676979860356075,
+    "blaTEM-1": -0.9544964763680269,
+    "blaTEM-135": 0.4461682710233395,
+    "farB": -0.012018193385240688,
+    "folP_F31L": -1.7820384239755134,
+    "folP_R228S": -0.19119667879796323,
+    "gyrA_D95A": -0.9380291739885922,
+    "gyrA_D95G": 0.1260197378916725,
+    "gyrA_D95N": 0.4175676983971798,
+    "gyrA_S91F": -0.5810232848730232,
+    "mtrA": -0.012018193385240688,
+    "mtrC": -0.012018193385240688,
+    "mtrD_K823E": 0.8341949508752927,
+    "mtrR": 0.03465940420746356,
+    "mtrR_A-53del": 0.42118583082461836,
+    "mtrR_A39T": -0.05567234878262466,
+    "mtrR_G45D": 2.2541138884511107,
+    "norM": -0.012018193385240688,
+    "norM_C-104T": 0.0038902058649248686,
+    "parC_D86N": 0.5564017101901477,
+    "parC_E91G": 2.4317116241568755,
+    "parC_E91K": -0.3614606251080166,
+    "parC_E91Q": 0.19738367387947428,
+    "parC_S87C": -0.019185919876369785,
+    "parC_S87I": -0.10507776189247217,
+    "parC_S87N": -0.43190007905238864,
+    "parC_S87R": 0.6063451343862416,
+    "parC_S88P": 0.8396325341769175,
+    "pbp2": 1.7568145774469308,
+    "penA_A311V": 1.8428023194237952,
+    "penA_A501T": 2.178024989790928,
+    "penA_A501V": -0.6412149114707598,
+    "penA_A510V": -0.3587352848815057,
+    "penA_A516G": -0.7954359172011211,
+    "penA_D346DD": -0.8906272671671092,
+    "penA_F504L": -0.3587352848815057,
+    "penA_G542S": -1.0113960453017588,
+    "penA_G545S": 0.5271514556238982,
+    "penA_I312M": 0.299373143870237,
+    "penA_N512Y": 0.5271514556238982,
+    "penA_P551L": 1.1752160865261296,
+    "penA_P551S": -0.3300791902063983,
+    "penA_T483S": 1.737929423691374,
+    "penA_V316T": 0.299373143870237,
+    "ponA_L421P": -1.4879230363719633,
+    "porB1b_A121D": -0.16448891470520308,
+    "porB1b_A121G": 2.7857091120164816,
+    "porB1b_A121N": -1.6644226058563465,
+    "porB1b_A121S": 1.3528793189666346,
+    "porB1b_G120D": -0.18733793690394662,
+    "porB1b_G120K": -0.13105703471980865,
+    "porB1b_G120R": -0.03198286128230759,
+    "rplD_G70D": -0.2659716418753372,
+    "rpoB_H553N": -0.12283435026674332,
+    "rpsJ_V57M": 1.1083375239077475,
+    "tet(M)": -0.11194591975657658
+  }
+}

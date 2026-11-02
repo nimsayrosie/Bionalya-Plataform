@@ -1,0 +1,25 @@
+# O que NÃO entra na imagem. Fica na raiz do repositório porque é de lá que o
+# build é feito (veja o Dockerfile em plataforma/).
+
+# Banco e credenciais: cada ambiente cria os seus.
+plataforma/bionalya.db
+plataforma/PRIMEIRO-ACESSO.txt
+plataforma/acessos.txt
+
+# A base completa de 32 MB não vai para a imagem; a amostra versionada basta.
+dados/neisseria-gonorrheae.csv
+dados/enviadas/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+.venv/
+venv/
+
+# Repositório e material que não é código
+.git/
+.github/
+imagens/
+apresentacoes/
+notebooks/
+*.ipynb

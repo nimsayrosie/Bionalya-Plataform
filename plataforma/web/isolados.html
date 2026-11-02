@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Base</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="isolados.html" aria-current="page">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
+      <li><a href="conta.html">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Explorar a base</h1>
+    <p>Os isolados do NCBI Pathogen Detection que sustentam os modelos. Esta tela é só
+       leitura: nenhum modelo é chamado aqui.</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+
+  <form id="form-busca">
+    <div class="campo" style="max-width:30rem">
+      <label for="base">Base de dados</label>
+      <select id="base"><option>Carregando…</option></select>
+      <span class="ajuda" id="ajuda-base"></span>
+    </div>
+
+    <div class="grade grade-4" style="align-items:end">
+      <div class="campo">
+        <label for="antibiotico">Antibiótico</label>
+        <select id="antibiotico">
+          <option value="">Qualquer um</option>
+        </select>
+        <span class="ajuda">Filtra quem tem antibiograma para ele.</span>
+      </div>
+      <div class="campo">
+        <label for="fenotipo">Resultado</label>
+        <select id="fenotipo">
+          <option value="">Resistente ou sensível</option>
+          <option value="resistente">Só resistentes</option>
+          <option value="sensivel">Só sensíveis</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="gene">Gene presente</label>
+        <input type="search" id="gene" placeholder="ex.: gyrA_S91F" autocomplete="off">
+      </div>
+      <div class="campo">
+        <label for="busca">Isolado, local ou fonte</label>
+        <input type="search" id="busca" placeholder="ex.: Australia" autocomplete="off">
+      </div>
+    </div>
+    <p>
+      <button class="botao" type="submit" id="btn-buscar">Buscar</button>
+      <button class="botao botao-claro" type="button" id="btn-limpar">Limpar filtros</button>
+    </p>
+  </form>
+
+  <p id="contagem" class="ajuda" style="margin-top:1rem;color:var(--roxo-suave)"></p>
+
+  <div id="resultados" class="carregando">Carregando</div>
+
+  <nav class="paginacao" id="paginacao" aria-label="Páginas de resultados" hidden>
+    <button class="botao botao-claro botao-mini" type="button" id="anterior">← Anterior</button>
+    <span id="pagina-atual"></span>
+    <button class="botao botao-claro botao-mini" type="button" id="proxima">Próxima →</button>
+  </nav>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-neutra" aria-hidden="true">Vale notar</span>
+    <div>
+      <strong>A maioria dos isolados não tem antibiograma</strong>
+      <p>São mais de 72 mil isolados sequenciados, mas só uns 800 têm resultado de
+         laboratório registrado. É esse número pequeno que limita os modelos — não o
+         algoritmo. Filtre por um antibiótico para ver só os que dá para usar no treino.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var form = document.getElementById("form-busca");
+  var alvo = document.getElementById("resultados");
+  var contagem = document.getElementById("contagem");
+  var paginacao = document.getElementById("paginacao");
+  var pagina = 1;
+  var paginas = 1;
+
+  function parametros() {
+    var q = ["pagina=" + pagina, "por_pagina=20",
+             "base=" + encodeURIComponent(document.getElementById("base").value)];
+    var ab = document.getElementById("antibiotico").value;
+    var fen = document.getElementById("fenotipo").value;
+    var gene = document.getElementById("gene").value.trim();
+    var busca = document.getElementById("busca").value.trim();
+    if (ab) q.push("antibiotico=" + encodeURIComponent(ab));
+    if (ab && fen) q.push("fenotipo=" + fen);
+    if (gene) q.push("gene=" + encodeURIComponent(gene));
+    if (busca) q.push("busca=" + encodeURIComponent(busca));
+    return q.join("&");
+  }
+
+  function cartao(iso) {
+    var div = document.createElement("div");
+    div.className = "cartao solicitacao";
+
+    var topo = document.createElement("div");
+    topo.className = "topo-linha";
+    var h = document.createElement("h3");
+    h.style.fontFamily = "var(--fonte-dados)";
+    h.style.fontSize = "var(--t-sm)";
+    h.textContent = iso.isolado || "(sem identificador)";
+    topo.appendChild(h);
+
+    if (iso.cluster) {
+      var c = document.createElement("span");
+      c.className = "etiqueta etiqueta-neutra";
+      c.textContent = "cluster " + iso.cluster;
+      topo.appendChild(c);
+    }
+
+    var meta = document.createElement("p");
+    meta.className = "meta";
+    meta.textContent = [iso.local, iso.fonte].filter(Boolean).join(" · ") || "sem origem registrada";
+
+    div.append(topo, meta);
+
+    if (iso.ast) {
+      var ast = document.createElement("p");
+      ast.className = "finalidade";
+      ast.style.fontFamily = "var(--fonte-dados)";
+      ast.style.fontSize = "var(--t-xs)";
+      ast.textContent = iso.ast;
+      div.appendChild(ast);
+    }
+
+    if (iso.genes.length) {
+      var lista = document.createElement("ul");
+      lista.className = "genes";
+      lista.style.marginTop = "0.3rem";
+      iso.genes.slice(0, 14).forEach(function (g) {
+        var li = document.createElement("li");
+        var sp = document.createElement("span");
+        sp.className = "etiqueta";
+        sp.style.fontFamily = "var(--fonte-dados)";
+        sp.style.textTransform = "none";
+        sp.style.letterSpacing = "0";
+        sp.textContent = g;
+        li.appendChild(sp);
+        lista.appendChild(li);
+      });
+      if (iso.genes.length > 14) {
+        var resto = document.createElement("li");
+        resto.className = "meta";
+        resto.style.alignSelf = "center";
+        resto.textContent = "+" + (iso.genes.length - 14) + " outros";
+        lista.appendChild(resto);
+      }
+      div.appendChild(lista);
+    }
+    return div;
+  }
+
+  function buscar() {
+    alvo.className = "carregando";
+    alvo.textContent = "Carregando";
+    paginacao.hidden = true;
+    Bio.api("/api/base/isolados?" + parametros()).then(function (d) {
+      paginas = d.paginas;
+      contagem.textContent = Bio.inteiro(d.total) + " isolado(s) encontrado(s).";
+      alvo.className = "";
+      alvo.innerHTML = "";
+      if (!d.isolados.length) {
+        alvo.className = "vazio";
+        alvo.textContent = "Nenhum isolado com esses filtros.";
+        return;
+      }
+      d.isolados.forEach(function (i) { alvo.appendChild(cartao(i)); });
+      paginacao.hidden = paginas < 2;
+      document.getElementById("pagina-atual").textContent =
+        "Página " + d.pagina + " de " + Bio.inteiro(paginas);
+      document.getElementById("anterior").disabled = d.pagina <= 1;
+      document.getElementById("proxima").disabled = d.pagina >= paginas;
+    }).catch(function (e) {
+      alvo.className = "vazio";
+      alvo.textContent = "Não deu para buscar.";
+      Bio.aviso("#recado", e.message);
+    });
+  }
+
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault(); pagina = 1; buscar();
+  });
+  document.getElementById("btn-limpar").addEventListener("click", function () {
+    form.reset(); pagina = 1; buscar();
+  });
+  document.getElementById("anterior").addEventListener("click", function () {
+    if (pagina > 1) { pagina--; buscar(); window.scrollTo({ top: 0 }); }
+  });
+  document.getElementById("proxima").addEventListener("click", function () {
+    if (pagina < paginas) { pagina++; buscar(); window.scrollTo({ top: 0 }); }
+  });
+
+  function carregarAntibioticos() {
+    var sel = document.getElementById("antibiotico");
+    var base = document.getElementById("base").value;
+    return Bio.api("/api/base/antibioticos?base=" + encodeURIComponent(base))
+      .then(function (lista) {
+        sel.innerHTML = '<option value="">Qualquer um</option>';
+        lista.forEach(function (a) {
+          var o = document.createElement("option");
+          o.value = a.nome_base; o.textContent = a.nome;
+          sel.appendChild(o);
+        });
+      });
+  }
+
+  document.getElementById("base").addEventListener("change", function () {
+    var b = (window._bases || []).find(function (x) {
+      return x.id === document.getElementById("base").value; }) || {};
+    document.getElementById("ajuda-base").textContent = b.especie
+      ? b.especie + " · " + Bio.inteiro(b.n_isolados || 0) + " isolados · " +
+        Bio.inteiro(b.n_com_ast || 0) + " com antibiograma"
+      : "";
+    pagina = 1;
+    carregarAntibioticos().then(buscar);
+  });
+
+  Bio.exigirLogin().then(function () {
+    return Bio.api("/api/bases");
+  }).then(function (bases) {
+    window._bases = bases;
+    var sel = document.getElementById("base");
+    sel.innerHTML = "";
+    bases.forEach(function (b) {
+      var o = document.createElement("option");
+      o.value = b.id;
+      o.textContent = b.nome + (b.arquivo_presente ? "" : " (arquivo ausente)");
+      o.disabled = !b.arquivo_presente;
+      sel.appendChild(o);
+    });
+    sel.disabled = bases.length < 2;
+    // Vindo de bases.html?base=…, já abre na base escolhida.
+    var pedida = new URLSearchParams(location.search).get("base");
+    if (pedida && bases.some(function (b) {
+          return b.id === pedida && b.arquivo_presente; })) {
+      sel.value = pedida;
+    }
+    sel.dispatchEvent(new Event("change"));
+  }).catch(function (e) {
+    if (e && e.message !== "sem sessão") Bio.aviso("#recado", e.message);
+  });
+});
+</script>
+
+</body>
+</html>

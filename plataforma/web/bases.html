@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Bases de dados</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+<style>
+  /* Lista numerada simples. A .passos do site é uma grade de quatro colunas,
+     que aqui espremeria o texto. */
+  .lista-confere { margin: 0.75rem 0 0 1.1rem; display: grid; gap: 0.6rem; }
+  .lista-confere li { font-size: var(--t-sm); line-height: 1.55; }
+</style>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html">Nova análise</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="isolados.html">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html" aria-current="page">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
+      <li><a href="conta.html">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Bases de dados</h1>
+    <p>A plataforma já vem com a base de <i>Neisseria gonorrhoeae</i> do NCBI Pathogen
+       Detection. Aqui você traz a sua: outra espécie, outro recorte, dados do seu
+       laboratório. Cada base treina os seus próprios modelos e fica separada das outras.</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+
+  <section aria-labelledby="t-lista">
+    <h2 id="t-lista">Bases disponíveis</h2>
+    <div id="lista" class="carregando" style="margin-top:1rem">Carregando</div>
+  </section>
+
+  <section class="secao" aria-labelledby="t-nova">
+    <h2 id="t-nova">Importar uma base</h2>
+
+    <div class="grade grade-2">
+      <div class="cartao">
+        <h3>Arquivo e identificação</h3>
+        <form id="form-base" style="margin-top:1.25rem" novalidate>
+          <div class="campo">
+            <label for="arquivo">Arquivo da base</label>
+            <input type="file" id="arquivo" accept=".csv,.tsv,.txt" required>
+            <span class="ajuda">
+              CSV ou TSV, até <span id="limite-mb">120</span> MB. O formato esperado é o
+              do NCBI Pathogen Detection, que já traz as colunas de genótipo e de
+              antibiograma.
+            </span>
+          </div>
+
+          <div class="campo">
+            <label for="nome">Nome da base</label>
+            <input type="text" id="nome" maxlength="160" required
+                   placeholder="ex.: Klebsiella pneumoniae — isolados do Brasil">
+            <span class="ajuda">É como ela vai aparecer nas listas da plataforma.</span>
+          </div>
+
+          <div class="campo">
+            <label for="especie">Espécie</label>
+            <input type="text" id="especie" maxlength="120" required
+                   placeholder="ex.: Klebsiella pneumoniae">
+          </div>
+
+          <div class="campo">
+            <label for="observacao">Observação (opcional)</label>
+            <textarea id="observacao" rows="3" maxlength="2000"
+                      placeholder="de onde veio, qual o recorte, data do download"></textarea>
+          </div>
+
+          <button class="botao" type="submit" id="btn-enviar">Importar base</button>
+        </form>
+      </div>
+
+      <div class="cartao">
+        <h3>O que a plataforma confere</h3>
+        <ol class="lista-confere">
+          <li><strong>Coluna de genótipo</strong> — a lista de genes de resistência de cada
+              isolado. É daí que saem as variáveis do modelo.</li>
+          <li><strong>Coluna de antibiograma</strong> — o resultado do laboratório (R, S, I).
+              É a resposta certa; sem ela não há o que treinar.</li>
+          <li><strong>Tamanho mínimo</strong> — pelo menos <span id="limite-linhas">30</span>
+              linhas, e alguma delas com antibiograma preenchido.</li>
+        </ol>
+        <p style="color:var(--roxo-suave);margin-top:1rem;font-size:var(--t-sm)">
+          Se algo faltar, o arquivo é recusado e apagado, e a mensagem diz exatamente o
+          que não foi encontrado. Quando passa, a resposta já lista quais antibióticos
+          daquela base têm isolados suficientes para treinar.
+        </p>
+        <div id="saida" style="margin-top:1rem"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-neutra" aria-hidden="true">Importante</span>
+    <div>
+      <strong>Importar não treina</strong>
+      <p>A base entra na plataforma para consulta na hora, mas os modelos dela começam
+         vazios. Depois de importar, vá em <a href="antibioticos.html">Antibióticos</a>,
+         escolha a base nova e treine um antibiótico de cada vez. Só o admin pode remover
+         uma base — e remover apaga também os modelos treinados com ela.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var lista = document.getElementById("lista");
+  var form = document.getElementById("form-base");
+  var btn = document.getElementById("btn-enviar");
+  var saida = document.getElementById("saida");
+  var sou_admin = false;
+
+  function data(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    return isNaN(d) ? "—" : d.toLocaleDateString("pt-BR");
+  }
+
+  function cartao(b) {
+    var div = document.createElement("div");
+    div.className = "cartao solicitacao";
+
+    var topo = document.createElement("div");
+    topo.className = "topo-linha";
+    var h = document.createElement("h3");
+    h.textContent = b.nome;
+
+    var selos = document.createElement("span");
+    selos.style.display = "flex";
+    selos.style.gap = "0.4rem";
+    selos.style.flexWrap = "wrap";
+
+    var tipo = document.createElement("span");
+    tipo.className = "etiqueta " + (b.padrao ? "etiqueta-neutra" : "selo-alta");
+    tipo.textContent = b.padrao ? "vem de fábrica" : "importada";
+    selos.appendChild(tipo);
+
+    if (!b.arquivo_presente) {
+      var falta = document.createElement("span");
+      falta.className = "etiqueta etiqueta-resistente";
+      falta.textContent = "arquivo ausente";
+      falta.title = "A base está registrada mas o CSV não está na pasta dados/.";
+      selos.appendChild(falta);
+    }
+    topo.append(h, selos);
+
+    var meta = document.createElement("p");
+    meta.className = "meta";
+    meta.textContent = b.especie + " · " + Bio.inteiro(b.n_isolados) + " isolados · " +
+      Bio.inteiro(b.n_com_ast) + " com antibiograma · " +
+      b.n_modelos + " modelo(s) treinado(s)" +
+      (b.enviada_por ? " · enviada por " + b.enviada_por : "") +
+      " · " + data(b.enviada_em);
+
+    div.append(topo, meta);
+
+    if (b.observacao) {
+      var obs = document.createElement("p");
+      obs.style.color = "var(--roxo-suave)";
+      obs.style.fontSize = "var(--t-sm)";
+      obs.style.marginTop = "0.5rem";
+      obs.textContent = b.observacao;
+      div.appendChild(obs);
+    }
+
+    var acoes = document.createElement("div");
+    acoes.className = "acoes";
+
+    var ver = document.createElement("a");
+    ver.className = "botao botao-mini botao-claro";
+    ver.href = "isolados.html?base=" + encodeURIComponent(b.id);
+    ver.textContent = "Explorar isolados";
+    acoes.appendChild(ver);
+
+    if (!b.padrao && sou_admin) {
+      var passo = 0;
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "botao botao-mini botao-recusar";
+      del.textContent = "Remover base";
+      del.addEventListener("click", function () {
+        if (passo === 0) {
+          passo = 1;
+          del.textContent = "Confirmar: apaga " + b.n_modelos + " modelo(s)";
+          setTimeout(function () {
+            if (passo === 1) { passo = 0; del.textContent = "Remover base"; }
+          }, 6000);
+          return;
+        }
+        Bio.ocupado(del, true, "Removendo…");
+        Bio.api("/api/bases/" + encodeURIComponent(b.id), { method: "DELETE" })
+          .then(function () {
+            Bio.aviso("#recado", "Base “" + b.nome + "” removida.", "ok");
+            carregar();
+          }).catch(function (e) {
+            Bio.ocupado(del, false);
+            Bio.aviso("#recado", e.message);
+          });
+      });
+      acoes.appendChild(del);
+    }
+
+    div.appendChild(acoes);
+    return div;
+  }
+
+  function carregar() {
+    lista.className = "carregando";
+    lista.textContent = "Carregando";
+    return Bio.api("/api/bases").then(function (bases) {
+      lista.className = "";
+      lista.innerHTML = "";
+      if (!bases.length) {
+        lista.className = "vazio";
+        lista.textContent = "Nenhuma base registrada.";
+        return;
+      }
+      bases.forEach(function (b) { lista.appendChild(cartao(b)); });
+    });
+  }
+
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    Bio.aviso("#recado", null);
+    saida.innerHTML = "";
+
+    var arq = document.getElementById("arquivo").files[0];
+    var nome = document.getElementById("nome").value.trim();
+    var especie = document.getElementById("especie").value.trim();
+    if (!arq) { Bio.aviso("#recado", "Escolha o arquivo da base."); return; }
+    if (!nome || !especie) {
+      Bio.aviso("#recado", "Preencha o nome da base e a espécie."); return;
+    }
+
+    var dados = new FormData();
+    dados.append("arquivo", arq);
+    dados.append("nome", nome);
+    dados.append("especie", especie);
+    dados.append("observacao", document.getElementById("observacao").value.trim());
+
+    saida.innerHTML = '<p class="carregando">Enviando e conferindo o arquivo</p>';
+    Bio.ocupado(btn, true, "Enviando…");
+
+    Bio.api("/api/bases", { method: "POST", body: dados }).then(function (r) {
+      Bio.ocupado(btn, false);
+      form.reset();
+      saida.innerHTML = "";
+
+      var ok = document.createElement("div");
+      ok.className = "recado recado-ok";
+      ok.textContent = r.nome + " importada: " + Bio.inteiro(r.n_isolados) +
+        " isolados, " + Bio.inteiro(r.n_com_ast) + " com antibiograma.";
+      saida.appendChild(ok);
+
+      var p = document.createElement("p");
+      p.style.marginTop = "0.75rem";
+      p.style.fontSize = "var(--t-sm)";
+      p.textContent = r.mensagem;
+      saida.appendChild(p);
+
+      if ((r.treinaveis || []).length) {
+        var dl = document.createElement("dl");
+        dl.className = "definicoes";
+        dl.style.marginTop = "0.75rem";
+        r.treinaveis.forEach(function (a) {
+          var d = document.createElement("div");
+          var dt = document.createElement("dt"); dt.textContent = a.nome;
+          var dd = document.createElement("dd");
+          dd.textContent = Bio.inteiro(a.n_util) + " isolados · confiança " +
+            (a.confianca === "media" ? "média" : a.confianca);
+          d.append(dt, dd); dl.appendChild(d);
+        });
+        saida.appendChild(dl);
+
+        var ir = document.createElement("a");
+        ir.className = "botao botao-mini";
+        ir.style.marginTop = "0.75rem";
+        ir.href = "antibioticos.html";
+        ir.textContent = "Treinar os modelos desta base";
+        saida.appendChild(ir);
+      }
+      carregar();
+    }).catch(function (e) {
+      Bio.ocupado(btn, false);
+      saida.innerHTML = "";
+      Bio.aviso("#recado", e.message);
+    });
+  });
+
+  Bio.exigirLogin({ papel: "equipe" }).then(function (u) {
+    sou_admin = Bio.pode(u, "admin");
+    return carregar();
+  }).catch(function (e) {
+    if (e && e.message !== "sem sessão" && e.message !== "sem permissão") {
+      Bio.aviso("#recado", e.message);
+    }
+  });
+});
+</script>
+
+</body>
+</html>

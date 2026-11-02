@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Nova análise</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo">
+  <a class="marca" href="index.html">
+    <img src="assets/bionalya-logo.svg" alt="">
+    <span>Bionalya</span>
+  </a>
+  <nav aria-label="Navegação principal">
+    <ul class="menu">
+      <li><a href="index.html">Painel</a></li>
+      <li><a href="nova-analise.html" aria-current="page">Nova análise</a></li>
+      <li><a href="modelos.html">Modelos</a></li>
+      <li><a href="isolados.html">Base</a></li>
+      <li data-papel="equipe" hidden><a href="bases.html">Bases</a></li>
+      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
+      <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
+      <li><a href="conta.html">Minha conta</a></li>
+      <li><a href="login.html" data-sair>Sair<span class="so-leitor"> da conta de <span data-usuario></span></span></a></li>
+    </ul>
+  </nav>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</header>
+
+<main id="conteudo" class="pagina">
+
+  <div class="cabecalho-pagina">
+    <h1>Nova análise</h1>
+    <p>Informe o perfil genético do isolado. O modelo devolve a probabilidade de
+       resistência ao antibiótico escolhido.</p>
+  </div>
+
+  <div class="recado" id="recado" hidden></div>
+
+  <form id="form-analise" novalidate>
+    <div class="grade grade-2">
+
+      <div class="cartao">
+        <h2>1. Alvo da previsão</h2>
+
+        <div class="campo" style="margin-top:1.5rem">
+          <label for="especie">Espécie bacteriana</label>
+          <select id="especie" name="especie" disabled>
+            <option>Carregando…</option>
+          </select>
+          <span class="ajuda">Outras espécies entram quando houver antibiograma suficiente na base.</span>
+        </div>
+
+        <div class="campo">
+          <label for="antibiotico">Antibiótico</label>
+          <select id="antibiotico" name="antibiotico" required>
+            <option>Carregando…</option>
+          </select>
+          <span class="ajuda" id="ajuda-antibiotico">Cada antibiótico tem o seu próprio modelo.</span>
+        </div>
+
+        <div class="campo">
+          <label for="modelo">Modelo</label>
+          <select id="modelo" name="modelo"><option>—</option></select>
+          <span class="ajuda" id="ajuda-modelo">
+            A Regressão Logística é a mais fácil de explicar gene a gene; as outras
+            costumam acertar mais.
+          </span>
+        </div>
+
+        <div id="ficha-modelo" hidden>
+          <span class="rotulo">Desempenho desse modelo</span>
+          <dl class="definicoes">
+            <div><dt>AUC no teste</dt><dd data-f="auc">—</dd></div>
+            <div><dt>Sensibilidade</dt><dd data-f="sens">—</dd></div>
+            <div><dt>Especificidade</dt><dd data-f="esp">—</dd></div>
+            <div><dt>Treinado com</dt><dd data-f="treino">—</dd></div>
+          </dl>
+          <div class="recado recado-info" id="aviso-trocou" hidden></div>
+          <div class="recado recado-erro" id="alerta-modelo" hidden></div>
+        </div>
+      </div>
+
+      <div class="cartao">
+        <h2>2. Perfil genético</h2>
+        <p class="ajuda" style="margin-top:0.5rem">
+          Marque os genes de resistência presentes no isolado. Os marcados com
+          <strong>·</strong> são os que mais pesam para este antibiótico.
+        </p>
+
+        <div class="campo busca-genes" style="margin-top:1.25rem">
+          <label for="busca">Filtrar genes</label>
+          <input type="search" id="busca" placeholder="ex.: gyrA" autocomplete="off">
+          <span class="ajuda" id="contagem-genes"></span>
+        </div>
+
+        <fieldset style="border:0;padding:0;margin:0">
+          <legend class="so-leitor">Genes de resistência presentes</legend>
+          <div class="genes-rolagem">
+            <ul class="genes" id="lista-genes">
+              <li class="carregando">Carregando</li>
+            </ul>
+          </div>
+        </fieldset>
+
+        <p class="ajuda" style="margin-top:1rem">
+          A lista muda conforme o antibiótico: são só os genes que viraram variável
+          naquele treino. Gene que o modelo nunca viu é ignorado.
+        </p>
+      </div>
+
+    </div>
+
+    <p style="margin-top:2rem">
+      <button class="botao" type="submit" id="btn-analisar">Analisar isolado</button>
+      <a class="botao botao-claro" href="index.html">Cancelar</a>
+    </p>
+  </form>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var selAnti = document.getElementById("antibiotico");
+  var selModelo = document.getElementById("modelo");
+  var selEsp = document.getElementById("especie");
+  var lista = document.getElementById("lista-genes");
+  var busca = document.getElementById("busca");
+  var contagem = document.getElementById("contagem-genes");
+  var ficha = document.getElementById("ficha-modelo");
+  var alerta = document.getElementById("alerta-modelo");
+  var form = document.getElementById("form-analise");
+  var btn = document.getElementById("btn-analisar");
+  var antibioticos = [];
+
+  function campo(nome, valor) {
+    var el = ficha.querySelector('[data-f="' + nome + '"]');
+    if (el) el.textContent = valor;
+  }
+
+  function montarModelos(a) {
+    selModelo.innerHTML = "";
+    (a.modelos || []).forEach(function (m) {
+      var o = document.createElement("option");
+      o.value = m.id;
+      o.textContent = m.nome + " — AUC " + Bio.num(m.auc) +
+        (m.id === a.recomendado ? "  (recomendado)" : "");
+      selModelo.appendChild(o);
+    });
+    selModelo.value = a.modelo_padrao || a.recomendado;
+    selModelo.disabled = (a.modelos || []).length < 2;
+    mostrarFicha(a);
+  }
+
+  function mostrarFicha(a) {
+    var m = (a.modelos || []).find(function (x) { return x.id === selModelo.value; });
+    ficha.hidden = false;
+    campo("auc", m ? Bio.num(m.auc) : "—");
+    campo("sens", m ? Bio.pct(m.sensibilidade) : "—");
+    campo("esp", m ? Bio.pct(m.especificidade) : "—");
+    campo("treino", Bio.inteiro(a.n_isolados) + " isolados");
+
+    var trocou = document.getElementById("aviso-trocou");
+    var padrao = a.modelo_padrao || a.recomendado;
+    if (selModelo.value !== padrao) {
+      var nomePadrao = ((a.modelos || []).find(function (x) {
+        return x.id === padrao; }) || {}).nome || padrao;
+      trocou.hidden = false;
+      trocou.textContent = "Você trocou o modelo. O padrão deste antibiótico é " +
+        nomePadrao + ".";
+    } else {
+      trocou.hidden = true;
+    }
+
+    if (a.alerta) {
+      alerta.hidden = false;
+      alerta.textContent = a.alerta;
+    } else {
+      alerta.hidden = true;
+    }
+  }
+
+  function carregarGenes(id) {
+    lista.innerHTML = '<li class="carregando">Carregando</li>';
+    return Bio.api("/api/antibioticos/" + encodeURIComponent(id) + "/genes")
+      .then(function (d) {
+        lista.innerHTML = "";
+        d.genes.forEach(function (g) {
+          var li = document.createElement("li");
+          var lab = document.createElement("label");
+          var inp = document.createElement("input");
+          inp.type = "checkbox"; inp.name = "gene"; inp.value = g.gene;
+          var sp = document.createElement("span");
+          sp.textContent = g.gene + (g.destaque ? " ·" : "");
+          lab.append(inp, sp);
+          li.appendChild(lab);
+          li.dataset.gene = g.gene.toLowerCase();
+          lista.appendChild(li);
+        });
+        contagem.textContent = d.n_features + " genes conhecidos por este modelo.";
+        filtrar();
+      });
+  }
+
+  function filtrar() {
+    var termo = (busca.value || "").trim().toLowerCase();
+    var visiveis = 0;
+    lista.querySelectorAll("li").forEach(function (li) {
+      var mostra = !termo || (li.dataset.gene || "").indexOf(termo) >= 0;
+      li.hidden = !mostra;
+      if (mostra) visiveis++;
+    });
+    if (termo) contagem.textContent = visiveis + " gene(s) com “" + busca.value.trim() + "”.";
+  }
+
+  busca.addEventListener("input", filtrar);
+
+  selAnti.addEventListener("change", function () {
+    var a = antibioticos.find(function (x) { return x.id === selAnti.value; });
+    if (!a) return;
+    montarModelos(a);
+    carregarGenes(a.id).catch(function (e) { Bio.aviso("#recado", e.message); });
+  });
+
+  selModelo.addEventListener("change", function () {
+    var a = antibioticos.find(function (x) { return x.id === selAnti.value; });
+    if (a) mostrarFicha(a);
+  });
+
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    Bio.aviso("#recado", null);
+    var genes = Array.from(lista.querySelectorAll("input:checked")).map(function (i) { return i.value; });
+    if (!genes.length) {
+      Bio.aviso("#recado", "Marque pelo menos um gene de resistência presente no isolado.");
+      busca.focus();
+      return;
+    }
+    Bio.ocupado(btn, true, "Analisando…");
+    Bio.api("/api/prever", { method: "POST", corpo: {
+      antibiotico: selAnti.value, genes: genes, modelo: selModelo.value || null
+    }}).then(function (r) {
+      Bio.guardarResultado(r);
+      location.href = "resultado.html";
+    }).catch(function (e) {
+      Bio.ocupado(btn, false);
+      Bio.aviso("#recado", e.message);
+    });
+  });
+
+  Bio.exigirLogin().then(function () {
+    return Bio.api("/api/base/antibioticos");
+  }).then(function (d) {
+    antibioticos = d.filter(function (a) { return a.ativo; });
+    if (!antibioticos.length) {
+      Bio.aviso("#recado", "Nenhum antibiótico com modelo treinado ainda.", "info");
+      btn.disabled = true;
+      return;
+    }
+    var ordem = { alta: 3, media: 2, baixa: 1 };
+    var varias = new Set(antibioticos.map(function (a) { return a.base_id; })).size > 1;
+    selAnti.innerHTML = "";
+    antibioticos.sort(function (a, b) {
+      return (ordem[b.confianca] || 0) - (ordem[a.confianca] || 0) || b.auc - a.auc;
+    }).forEach(function (a) {
+      var o = document.createElement("option");
+      o.value = a.id;
+      o.textContent = a.nome + " — " + Bio.inteiro(a.n_isolados) + " isolados" +
+        (varias ? "  ·  " + a.especie : "");
+      selAnti.appendChild(o);
+    });
+
+    var especies = Array.from(new Set(antibioticos.map(function (a) { return a.especie; })));
+    selEsp.innerHTML = "";
+    especies.forEach(function (e) {
+      var o = document.createElement("option");
+      o.value = e; o.textContent = e;
+      selEsp.appendChild(o);
+    });
+    selEsp.disabled = especies.length < 2;
+
+    selAnti.dispatchEvent(new Event("change"));
+  }).catch(function (e) {
+    if (e && e.message !== "sem sessão") Bio.aviso("#recado", e.message);
+  });
+});
+</script>
+
+</body>
+</html>
