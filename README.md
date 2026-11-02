@@ -130,19 +130,26 @@ Os detalhes de cada decisão, a lista de rotas e o passo a passo da hospedagem e
 ## Estrutura
 
 ```
-dados_algoritmos.ipynb   Pipeline completo: importação, limpeza, features, treino e avaliação
-dados/
-  amostra-neisseria-gonorrhoeae.csv   os 794 isolados com antibiograma (versionada)
-  neisseria-gonorrheae.csv            base completa do NCBI, 32 MB (não versionada)
-plataforma/              A aplicação
-  api/                     FastAPI, pipeline de treino, banco e previsão
-  web/                     as 15 telas, o CSS e o cliente da API
-  modelos/<base>/          um .joblib e um .json por antibiótico de cada base
-  Dockerfile               empacotamento para a hospedagem
-  README.md                instalação, rotas da API e publicação
-bionalya/                Primeira versão das telas, mantida como registro
-render.yaml              Configuração da hospedagem
-imagens/                 Imagens deste README e diagramas do documento de processo
+dados/                        base de dados de isolados
+  amostra-neisseria-gonorrhoeae.csv    os 794 isolados com antibiograma (versionada)
+  neisseria-gonorrheae.csv             a base completa, 32 MB (não versionada)
+dados_algoritmos.ipynb        caderno de análise exploratória e treinamento inicial
+imagens/                      logotipo, capturas de tela e diagramas da documentação
+plataforma/                   a aplicação
+  api/
+    main.py                   as rotas da API
+    treino.py                 pipeline: rótulos, features, separação por cluster, 4 modelos
+    modelos.py                carrega os modelos salvos e responde a previsão
+    banco.py                  esquema do SQLite e migração automática
+    seguranca.py              resumo criptográfico de senha
+    config.py                 caminhos, limites e nomes em português
+  web/                        as 15 telas, o CSS, o tema e o cliente da API
+  modelos/<base>/             um .joblib e um .json por antibiótico de cada base
+  Dockerfile                  empacotamento para publicação
+  requirements.txt            dependências com versão fixada
+  README.md                   instruções de instalação, execução e publicação
+bionalya/                     primeira versão das telas, mantida como registro
+render.yaml                   configuração da hospedagem
 ```
 
 ## Como rodar
