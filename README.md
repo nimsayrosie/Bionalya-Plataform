@@ -85,14 +85,25 @@ API estão em [`plataforma/README.md`](plataforma/README.md).
 ## Estrutura
 
 ```
-dados_algoritmos.ipynb   Pipeline completo: importação, limpeza, features, treino e avaliação
-dados/                   Base do NCBI (não versionada — veja "Como rodar")
-plataforma/              Telas da Bionalya (HTML + CSS)
-  inicio.html              Página inicial pública
-  login.html  cadastro.html  acesso-pendente.html
-  index.html  nova-analise.html  resultado.html  modelos.html
-  style.css  tema.js  assets/
-imagens/                 Imagens deste README
+dados/                        base de dados de isolados
+  amostra-neisseria-gonorrhoeae.csv    os 794 isolados com antibiograma (versionada)
+  neisseria-gonorrheae.csv             a base completa, 32 MB (não versionada)
+dados_algoritmos.ipynb        caderno de análise exploratória e treinamento inicial
+imagens/                      logotipo e capturas de tela usadas na documentação
+plataforma/                   a aplicação
+  api/
+    main.py                   as rotas da API
+    treino.py                 pipeline: rótulos, features, separação por cluster, 4 modelos
+    modelos.py                carrega os modelos salvos e responde a previsão
+    banco.py                  esquema do SQLite e migração automática
+    seguranca.py              resumo criptográfico de senha
+    config.py                 caminhos, limites e nomes em português
+  web/                        as 13 telas, o CSS, o tema e o cliente da API
+  modelos/<base>/             um .joblib e um .json por antibiótico de cada base
+  Dockerfile                  empacotamento para publicação
+  requirements.txt            dependências com versão fixada
+  README.md                   instruções de instalação, execução e publicação
+render.yaml                   configuração da hospedagem
 ```
 
 ## Como rodar
