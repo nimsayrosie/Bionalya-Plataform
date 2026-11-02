@@ -1,7 +1,7 @@
 # Bionalya — plataforma
 
 Previsão de resistência bacteriana a antibióticos a partir dos genes encontrados no
-sequenciamento. Treze telas, uma API em FastAPI e seis antibióticos com quatro modelos
+sequenciamento. Quinze telas, uma API em FastAPI e seis antibióticos com quatro modelos
 treinados cada. A base de *Neisseria gonorrhoeae* vem junto, e dá para importar outras.
 
 > **Protótipo acadêmico, sem validação clínica.** Nada aqui é diagnóstico e nada
