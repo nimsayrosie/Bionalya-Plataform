@@ -51,6 +51,20 @@ está no `.gitignore` e a senha não existe em lugar nenhum do repositório. Ent
 **troque em "Minha conta"** (a tela avisa enquanto você estiver usando a senha inicial),
 e use essa conta para liberar os cadastros e distribuir os papéis.
 
+**5. Onde ficam os dados.** Na sua máquina, o banco é o arquivo `plataforma/bionalya.db`
+(SQLite), criado sozinho na primeira vez. Ele não se perde ao reiniciar e não vai para o
+GitHub. Para usar um PostgreSQL em vez dele — o mesmo da hospedagem, por exemplo —
+defina a variável `DATABASE_URL` antes de subir:
+
+```bash
+export DATABASE_URL='postgresql://usuario:senha@servidor/banco?sslmode=require'
+# Windows (PowerShell):  $env:DATABASE_URL = 'postgresql://...'
+python -m uvicorn api.main:app --reload
+```
+
+Cuidado: com `DATABASE_URL` apontando para o banco da hospedagem, o que você fizer na
+sua máquina vale para todo mundo que usa o site.
+
 ### Compartilhar o acesso com alguém
 
 Duas formas, ambas na conta de admin:
@@ -77,7 +91,14 @@ era da equipe é promovida a admin e mantém a mesma senha.
 
 A migração só sabe **acrescentar** coluna, que é o que o SQLite permite com
 `ALTER TABLE`. Remover ou mudar o tipo de uma coluna pede migração de verdade; se um dia
-o projeto precisar disso, vale trazer o Alembic.
+o projeto precisar disso, vale trazer o Alembic. A mesma migração roda igual no
+PostgreSQL.
+
+**Trocar de banco não leva os dados junto.** Quando a `DATABASE_URL` passa a apontar
+para um Postgres novo, ele começa vazio: a API cria as tabelas, a conta de admin e os
+seis antibióticos de fábrica, mas os usuários e as bases do `bionalya.db` local ficam no
+arquivo local. Na hospedagem isso não faz diferença, porque lá o banco antigo já se
+apagava a cada reinício.
 
 ## Os três papéis
 
@@ -100,7 +121,8 @@ plataforma/
     main.py       as rotas
     treino.py     o pipeline: rótulos, features, split por cluster, 4 modelos
     modelos.py    carrega os .joblib e responde a previsão
-    banco.py      SQLite: usuários, sessões, antibióticos
+    banco.py      tabelas e migração; Postgres (DATABASE_URL) ou SQLite local
+    arquivos.py   cópia dos CSVs e modelos no banco, para o disco descartável
     seguranca.py  hash de senha
     config.py     caminhos e nomes em português
   modelos/
@@ -274,31 +296,81 @@ O repositório já traz o `Dockerfile` e o `render.yaml` prontos.
 
 1. Suba o repositório para o GitHub (incluindo `plataforma/modelos/` e
    `dados/amostra-neisseria-gonorrhoeae.csv`).
-2. Em [dashboard.render.com](https://dashboard.render.com), **New → Blueprint**, aponte
+2. **Crie o banco no [Neon](https://neon.com)** (grátis, sem prazo, sem cartão): um
+   projeto chamado `bionalya`, na região **US West (Oregon)**, a mesma do serviço. Em
+   **Connect**, copie a *connection string* (`postgresql://...?sslmode=require`) e guarde
+   como senha. Não precisa criar tabela: a API cria tudo sozinha.
+3. Em [dashboard.render.com](https://dashboard.render.com), **New → Blueprint**, aponte
    para o repositório. Ele lê o `render.yaml` e monta o serviço sozinho. Não pede cartão.
-3. Primeiro build leva uns 5 minutos. No fim sai uma URL `https://bionalya.onrender.com`.
-4. Em **Environment**, copie o valor de `BIONALYA_ADMIN_SENHA` — o Render sorteou essa
+   Quando ele pedir o valor de **`DATABASE_URL`**, cole a linha do Neon. (Serviço que já
+   existe: *Environment → Add Environment Variable*.)
+4. Primeiro build leva uns 5 minutos. No fim sai uma URL `https://bionalya.onrender.com`.
+5. Em **Environment**, copie o valor de `BIONALYA_ADMIN_SENHA` — o Render sorteou essa
    senha e é com ela que você entra como admin.
+6. **Confira que os dados ficam:** cadastre algo, clique em *Manual Deploy → Restart* e
+   entre de novo. Tem que estar tudo lá.
+
+Com o banco persistente, a conta de admin é criada **uma vez só**, na primeira partida.
+Se você trocar a senha em *Minha conta*, vale a nova; mudar `BIONALYA_ADMIN_SENHA` no
+painel depois disso não altera a conta que já existe.
 
 O que esperar do plano grátis: 750 horas de instância por mês (uma instância ligada o mês
 inteiro cabe), o serviço **dorme depois de 15 minutos** sem acesso e a primeira visita
 depois disso leva cerca de 1 minuto para acordar, e **o disco é descartável** — a cada
-reinício o `bionalya.db` volta do zero.
+reinício o que está nele volta do zero.
 
-É por causa da última que as contas vêm de variável de ambiente: sem elas, a senha do
-admin mudaria a cada reinício e ninguém mais entraria.
+Por isso, na hospedagem, os dados ficam num **PostgreSQL no [Neon](https://neon.com)**,
+grátis e sem prazo, ligado ao serviço pela variável `DATABASE_URL` (o Render pede o
+valor ao criar o serviço). O Postgres grátis do próprio Render não é usado: ele é
+apagado 30 dias depois de criado se ninguém pagar.
+
+**Tudo sobre isso** — o que é grátis, o que tem prazo, o passo a passo do Neon e o que
+mudou no código — está em [`docs/banco-e-hospedagem.md`](../docs/banco-e-hospedagem.md).
 
 | Variável | Para quê |
 |---|---|
+| `DATABASE_URL` | o Postgres. Sem ela, a API usa o `bionalya.db` local (SQLite) |
+| `BIONALYA_ARQUIVOS_NO_BANCO` | `1` ou `0` força ligar ou desligar a cópia dos arquivos no banco. Padrão: ligada com Postgres, desligada com SQLite |
 | `BIONALYA_ADMIN_EMAIL` | e-mail da conta de admin (padrão: `equipe@bionalya.app`) |
 | `BIONALYA_ADMIN_SENHA` | senha dela. Em branco = sorteada e gravada em `PRIMEIRO-ACESSO.txt` |
 | `BIONALYA_DEMO_EMAIL` | conta aberta de demonstração. Sem ela, não existe |
 | `BIONALYA_DEMO_SENHA` | senha da conta de demonstração |
 | `BIONALYA_DEMO_NOME` | nome que aparece nela |
 
-Como o banco se perde a cada reinício, o que for cadastrado durante o teste **não
-sobrevive**. Para uma banca isso basta; para uso contínuo, é trocar o SQLite por um
-Postgres (o Render também tem um grátis) ou pagar um disco.
+### O que fica guardado
+
+| O quê | Onde mora | Sobrevive ao reinício? |
+|---|---|---|
+| Usuários, papéis, senhas (hash) | tabela `usuarios` | sim |
+| Sessões abertas (quem está logado) | tabela `sessoes` | sim — ninguém é deslogado |
+| Bases cadastradas e o termo aceito | tabela `bases` | sim |
+| Antibióticos, nome em português, modelo padrão | tabela `antibioticos` | sim |
+| Avisos para a equipe | tabela `notificacoes` | sim |
+| CSVs enviados (`dados/enviadas/`) | disco **+ cópia na tabela `arquivos`** | sim, recriados na partida |
+| Modelos treinados (`modelos/<base>/`) | disco **+ cópia na tabela `arquivos`** | sim, recriados na partida |
+| Base de fábrica e os 6 modelos iniciais | no repositório | sim, vêm no deploy |
+
+A cópia dos arquivos no banco é o módulo `api/arquivos.py`: toda vez que a plataforma
+grava um CSV ou treina um modelo, o arquivo vai também para a tabela `arquivos`; quando
+a base é removida, a cópia sai junto; e na partida o que falta no disco é recriado
+antes de tudo. O disco continua sendo de onde tudo é lido.
+
+Os arquivos ocupam o espaço do Postgres: o grátis do Neon tem 1 GB, e cada CSV pode ter
+até 120 MB (`MAX_MB_BASE`). Com SQLite, na sua máquina, a cópia fica desligada — o disco
+já é permanente e ela só dobraria o espaço.
+
+Quando há arquivos para recriar, o log da partida mostra
+`N arquivo(s) recriados a partir do banco.`
+
+**Backup.** O plano grátis do Neon não faz cópia de segurança automática. Para guardar
+uma, rode na sua máquina (precisa do `pg_dump`, que vem com o PostgreSQL):
+
+```bash
+pg_dump "$DATABASE_URL" > backup-bionalya.sql
+```
+
+O arquivo tem os dados de todos os usuários e as bases enviadas: trate como dado
+pessoal e não suba para o GitHub.
 
 ### Em qualquer outro lugar
 
@@ -307,6 +379,14 @@ Com Docker, o contexto do build é a **raiz do repositório**, não a pasta `pla
 ```bash
 docker build -f plataforma/Dockerfile -t bionalya .
 docker run -p 8000:8000 -e BIONALYA_ADMIN_SENHA=escolha-uma bionalya
+```
+
+Sem `DATABASE_URL`, o banco fica dentro do container e some quando ele é recriado. Para
+os dados ficarem, passe um Postgres:
+
+```bash
+docker run -p 8000:8000 -e BIONALYA_ADMIN_SENHA=escolha-uma \
+  -e DATABASE_URL='postgresql://...' bionalya
 ```
 
 ## A API
@@ -399,6 +479,15 @@ contradiz o **RNF10** como ele está escrito hoje. Esse requisito precisa ser re
 vale somar requisitos de autenticação, armazenamento de senha com hash, base legal e
 prazo de retenção sob a LGPD.
 
+**O banco da hospedagem fica num serviço de terceiro.** No Render com Neon, os
+cadastros, as sessões e os CSVs enviados ficam guardados nos servidores do Neon, nos
+Estados Unidos. Sob a LGPD isso é transferência internacional de dado pessoal, e entra
+na mesma definição pendente de base legal. Duas regras práticas:
+
+- a `DATABASE_URL` contém a senha do banco: só no painel do Render, nunca no
+  `render.yaml`, no README ou num commit;
+- um backup feito com `pg_dump` tem os mesmos dados e merece o mesmo cuidado.
+
 O **log de previsões** foi deixado de fora de propósito, por isso mesmo: gravar consulta
 ligada a usuário é tratamento de dado pessoal e pede essa definição antes. A tabela está
 desenhada e entra depois.
@@ -409,4 +498,5 @@ desenhada e entra depois.
 - Recuperação de senha por e-mail (hoje só a equipe consegue ajudar quem esqueceu)
 - Upload do CSV do isolado na tela de nova análise (hoje só a marcação de genes)
 - Treino em segundo plano, para a tela não ficar esperando
-- Banco que sobrevive ao reinício na hospedagem grátis (trocar o SQLite por Postgres)
+- Backup automático do banco da hospedagem (hoje é à mão, com `pg_dump`)
+- Levar os dados de um `bionalya.db` local para o Postgres, se um dia for preciso

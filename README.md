@@ -137,13 +137,16 @@ dados/                        base de dados de isolados
   amostra-neisseria-gonorrhoeae.csv    os 794 isolados com antibiograma (versionada)
   neisseria-gonorrheae.csv             a base completa, 32 MB (não versionada)
 dados_algoritmos.ipynb        caderno de análise exploratória e treinamento inicial
+docs/
+  banco-e-hospedagem.md       onde ficam os dados, o que é grátis, o que tem prazo, Neon + Render
 imagens/                      logotipo, capturas de tela e diagramas da documentação
 plataforma/                   a aplicação
   api/
     main.py                   as rotas da API
     treino.py                 pipeline: rótulos, features, separação por cluster, 4 modelos
     modelos.py                carrega os modelos salvos e responde a previsão
-    banco.py                  esquema do SQLite e migração automática
+    banco.py                  esquema do banco (Postgres ou SQLite) e migração automática
+    arquivos.py               guarda CSVs e modelos no banco, para sobreviverem ao reinício
     seguranca.py              resumo criptográfico de senha
     config.py                 caminhos, limites e nomes em português
   web/                        as 15 telas, o CSS, o tema e o cliente da API
@@ -196,6 +199,19 @@ para este repositório, monta o serviço sozinho no plano gratuito. O passo a pa
 completo e as variáveis de ambiente estão em
 [`plataforma/README.md`](plataforma/README.md).
 
+O servidor grátis do Render apaga o próprio disco a cada reinício e a cada vez que dorme
+(15 minutos sem acesso). Por isso os dados ficam num **PostgreSQL grátis e sem prazo no
+[Neon](https://neon.com)**: crie o banco lá antes (leva dois minutos, sem cartão) e cole
+o endereço dele quando o Render pedir a variável `DATABASE_URL`. **Nada disso é pago.**
+O que é grátis, o que tem prazo e o passo a passo estão em
+[`docs/banco-e-hospedagem.md`](docs/banco-e-hospedagem.md).
+
+| Peça | Onde | Custo | Prazo |
+|---|---|---|---|
+| Servidor (API e telas) | Render, plano grátis | nenhum | nenhum |
+| Banco (usuários, bases, modelos treinados) | Neon, plano grátis | nenhum | nenhum |
+| Na sua máquina | `plataforma/bionalya.db` (SQLite) | nenhum | nenhum |
+
 ## Limites conhecidos
 
 - **Uma espécie.** Os modelos de fábrica são todos de *N. gonorrhoeae*. A importação de
@@ -205,8 +221,9 @@ completo e as variáveis de ambiente estão em
 - **Antibiótico fácil e antibiótico difícil.** O ciprofloxacino depende de poucas
   mutações bem conhecidas. Mecanismos multifatoriais são bem mais difíceis — a cefixima,
   com AUC 0,642, mostra exatamente isso.
-- **O banco não sobrevive ao reinício na hospedagem gratuita.** O disco é descartável;
-  para uso contínuo seria preciso trocar o SQLite por PostgreSQL.
+- **1 GB de banco na hospedagem.** Os dados ficam num PostgreSQL grátis e sem prazo
+  (Neon) e sobrevivem ao reinício, mas o espaço é de 1 GB, e os CSVs enviados ocupam
+  esse espaço. Detalhes em [`docs/banco-e-hospedagem.md`](docs/banco-e-hospedagem.md).
 - **Sem log de previsões.** Deixado de fora de propósito: gravar consulta associada a
   usuário é tratamento de dado pessoal e pede base legal e prazo de retenção definidos.
 - **Licença ainda não definida.** Enquanto isso, trate como trabalho acadêmico.
