@@ -13,6 +13,9 @@ passlib==1.7.4
 # Lê o upload de base (multipart/form-data) em POST /api/bases. O FastAPI não
 # traz junto: sem ela a API nem sobe, quebra na hora de registrar a rota.
 python-multipart==0.0.32
+# Driver do PostgreSQL, usado quando DATABASE_URL está definida. O [binary]
+# já traz a libpq junto: não precisa instalar nada no sistema.
+psycopg[binary]==3.3.6
 
 # Dados e modelos
 pandas==3.0.5

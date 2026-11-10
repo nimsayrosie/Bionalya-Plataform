@@ -24,7 +24,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import banco, config, modelos, seguranca, treino
+from . import arquivos, banco, config, modelos, seguranca, treino
 
 # --------------------------------------------------------------------------- #
 # Partida
@@ -35,6 +35,10 @@ def iniciar() -> None:
     if novas:
         print("Banco atualizado: " + ", ".join(novas))
     config.PASTA_ENVIADAS.mkdir(parents=True, exist_ok=True)
+    # Antes de semear: _semear_antibioticos lê os modelos do disco.
+    recriados = arquivos.restaurar()
+    if recriados:
+        print(f"{len(recriados)} arquivo(s) recriados a partir do banco.")
     with banco.sessao() as db:
         _semear_bases(db)
         _liberar_bases_em_analise(db)
@@ -935,6 +939,7 @@ async def importar_base(u: Logado, db: Db,
         termo_versao=config.TERMO_BASE_VERSAO,
     ))
     db.commit()
+    arquivos.guardar(destino)
     esquecer_base(base_id)
 
     if treinaveis:
@@ -991,6 +996,8 @@ def apagar_base(base_id: str, u: Logado, db: Db):
         raise HTTPException(403, "Só quem enviou a base, ou um admin, pode removê-la.")
 
     n = modelos.apagar_base(base_id)
+    arquivos.apagar_pasta(modelos.pasta_da_base(base_id))
+    arquivos.apagar(caminho_da_base(linha))
     for a in db.execute(select(banco.Antibiotico)
                         .where(banco.Antibiotico.base_id == base_id)).scalars().all():
         db.delete(a)
@@ -1171,6 +1178,8 @@ def treinar_novo(entrada: TreinoEntrada, u: Logado, db: Db):
         raise HTTPException(422, str(e))
 
     modelos.esquecer()
+    pasta = modelos.pasta_da_base(base_id)
+    arquivos.guardar(pasta / f"{resultado.id}.joblib", pasta / f"{resultado.id}.json")
     chave = f"{base_id}__{resultado.id}"
     meta = modelos.metadados(chave) or {}
     linha = db.get(banco.Antibiotico, chave)
