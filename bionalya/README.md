@@ -1,6 +1,14 @@
 # Bionalya — protótipo da plataforma (HTML + CSS)
 
-Oito telas, da página inicial pública até o resultado da previsão. Sem biblioteca e
+> [!NOTE]
+> **Esta é a primeira versão das telas, guardada como registro.** Ela não tem banco,
+> não tem API e mostra dados de exemplo fixos. A plataforma de verdade — 15 telas
+> ligadas à API, com login, banco de dados e os modelos treinados — está em
+> [`plataforma/`](../plataforma/), e o manual dela em
+> [`plataforma/README.md`](../plataforma/README.md). A identidade visual, o modo escuro
+> e a acessibilidade descritos aqui continuam valendo lá.
+
+Nove telas, da página inicial pública até o resultado da previsão. Sem biblioteca e
 sem build: abre com duplo clique em qualquer navegador. O único JavaScript são as
 ~45 linhas do `tema.js`, que servem só para o botão de modo escuro.
 
@@ -9,6 +17,7 @@ inicio.html           Página inicial pública — o que é, como funciona, para
 login.html            Entrar
 cadastro.html         Solicitar acesso (vínculo, instituição, finalidade, aceite)
 acesso-pendente.html  Confirmação de que a solicitação está em análise
+esquecisenha.html     Recuperar senha (só a tela; na plataforma ainda não existe — ver abaixo)
 index.html            Painel — resumo da base e atalhos
 nova-analise.html     Formulário: espécie, antibiótico, modelo e perfil genético
 resultado.html        Previsão, contribuição dos genes e confiabilidade do modelo
@@ -106,6 +115,12 @@ POST /api/sessao     { email, senha } -> { token, usuario: { nome, vinculo } }
 DELETE /api/sessao   encerra a sessão
 ```
 
+> **Hoje:** as três rotas existem em `plataforma/api/main.py`, com senha guardada só
+> como hash, aprovação pela equipe e três papéis (pesquisador, equipe, admin). Os
+> cadastros e as sessões ficam no banco de dados — SQLite na sua máquina, PostgreSQL na
+> hospedagem (ver [`docs/banco-e-hospedagem.md`](../docs/banco-e-hospedagem.md)). O
+> alerta sobre o RNF10 continua pendente.
+
 ## Integração com os modelos de ML
 
 As telas estão com dados de exemplo fixos no HTML. Onde eles entram está marcado
@@ -113,6 +128,13 @@ com comentários `<!-- INTEGRAÇÃO ML: ... -->` e, nos pontos de texto, com
 atributos `data-campo`.
 
 Sugestão de contrato, para o back-end e o front-end combinarem antes de codar:
+
+> **Hoje:** essas quatro rotas existem de verdade e as telas da `plataforma/web/` já
+> consomem a API — não há mais dado fixo no HTML. O formato final ficou próximo deste,
+> com acréscimos (um antibiótico agora é identificado por `<base>__<antibiotico>`,
+> porque cada base tem seus modelos). A referência atual é a lista de rotas em
+> [`plataforma/README.md`](../plataforma/README.md#a-api) e a documentação gerada pela
+> própria API em `/docs`.
 
 **`GET /api/base/resumo`** — alimenta os quatro cartões do painel
 ```json
@@ -165,3 +187,18 @@ virar API: AUC 0,994 do melhor modelo e 58 genes como variáveis.
 - Estado de carregando e de erro na previsão
 - Validação do formulário quando nenhum gene é marcado
 - Decidir se a previsão abre em página nova ou atualiza a mesma tela
+
+### Como ficou cada item, na `plataforma/`
+
+| Item do protótipo | Situação | Onde |
+|---|---|---|
+| Lista/busca de isolados | feito | `plataforma/web/isolados.html` |
+| Tela de cadastro recusado | feito | `plataforma/web/acesso-recusado.html` |
+| Recuperação de senha | **pendente** — a tela existe só aqui no protótipo (`esquecisenha.html`); na plataforma o link "Esqueci minha senha" ainda não leva a lugar nenhum e quem esquece depende da equipe | [issue #26](https://github.com/nimsayrosie/Bionalya-Plataform/issues/26) |
+| Painel da equipe para aprovar acessos | feito | `plataforma/web/equipe.html` (e `usuarios.html` para o admin) |
+| Carregando e erro na previsão | feito | `nova-analise.html` e `resultado.html` |
+| Validação sem nenhum gene marcado | feito | `nova-analise.html` avisa, e a API também recusa |
+| Página nova ou mesma tela | decidido: **página nova** — a análise abre `resultado.html` | `nova-analise.html` |
+
+O que ainda falta na plataforma como um todo está no fim de
+[`plataforma/README.md`](../plataforma/README.md#o-que-ainda-falta).
