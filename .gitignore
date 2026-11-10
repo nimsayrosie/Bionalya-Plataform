@@ -16,3 +16,10 @@ dados/neisseria-gonorrheae.csv
 
 # Bases que alguém subiu pela plataforma
 dados/enviadas/
+
+# Credenciais do banco (o neon init grava a connection string aqui).
+# Nunca versionar: tem a senha do banco dentro.
+.env
+.env.*
+.neon
+node_modules/

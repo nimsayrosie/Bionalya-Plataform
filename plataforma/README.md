@@ -326,7 +326,8 @@ O repositório já traz o `Dockerfile` e o `render.yaml` prontos.
    para o repositório. Ele lê o `render.yaml` e monta o serviço sozinho. Não pede cartão.
    Quando ele pedir o valor de **`DATABASE_URL`**, cole a linha do Neon. (Serviço que já
    existe: *Environment → Add Environment Variable*.)
-4. Primeiro build leva uns 5 minutos. No fim sai uma URL `https://bionalya.onrender.com`.
+4. Primeiro build leva uns 5 minutos. No fim sai uma URL `https://bionalya-xxxx.onrender.com`
+   (a da Bionalya hoje é <https://bionalya-uvqh.onrender.com>).
 5. Em **Environment**, copie o valor de `BIONALYA_ADMIN_SENHA` — o Render sorteou essa
    senha e é com ela que você entra como admin.
 6. **Confira que os dados ficam:** cadastre algo, clique em *Manual Deploy → Restart* e

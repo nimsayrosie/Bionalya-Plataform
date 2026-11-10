@@ -96,6 +96,9 @@ minoritária no teste dispara o alerta — e mostra o aviso na tela junto do res
 |---|---|
 | <img src="imagens/tela-claro.png" alt="Página inicial da Bionalya em modo claro" width="420"> | <img src="imagens/tela-escuro.png" alt="Página inicial da Bionalya em modo escuro" width="420"> |
 
+**No ar em <https://bionalya-uvqh.onrender.com>** (o primeiro acesso depois de um tempo parado
+leva cerca de 1 minuto, porque o servidor grátis dorme).
+
 São **16 telas** servidas por uma API em FastAPI. O que dá para fazer nelas:
 
 - **Analisar um isolado** — marcar os genes de resistência e receber a probabilidade,
