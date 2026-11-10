@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bionalya — Recuperar senha</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<div class="barra-acesso">
+  <a href="login.html">← Voltar para o login</a>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</div>
+
+<main class="acesso">
+
+  <div class="acesso-marca">
+    <a href="inicio.html"><img src="assets/bionalya-logo.svg" alt=""></a>
+    <strong>Bionalya</strong>
+    <span>Previsão de resistência bacteriana para apoio à pesquisa</span>
+  </div>
+
+  <div class="cartao">
+    <h1 style="font-size:1.75rem">Recuperar senha</h1>
+    <p style="margin-top:0.5rem; color:var(--roxo-suave); font-size:var(--t-sm);">
+      Digite o e-mail do seu cadastro. A equipe da Bionalya recebe o pedido, gera
+      uma senha nova e entra em contato com você.
+    </p>
+
+    <div class="recado" id="recado" hidden role="status"></div>
+
+    <form id="form-recuperar" style="margin-top:2rem" novalidate>
+
+      <div class="campo">
+        <label for="email">E-mail institucional</label>
+        <input type="email" id="email" name="email" autocomplete="email"
+               inputmode="email" required aria-describedby="ajuda-email"
+               placeholder="voce@universidade.br">
+        <span class="ajuda" id="ajuda-email">O mesmo que você usou no cadastro.</span>
+      </div>
+
+      <div class="campo">
+        <label for="mensagem">Recado para a equipe <span class="ajuda">(opcional)</span></label>
+        <textarea id="mensagem" name="mensagem" rows="3" maxlength="500"
+                  aria-describedby="ajuda-mensagem"></textarea>
+        <span class="ajuda" id="ajuda-mensagem">Por exemplo, outro jeito de falar com você
+          se não tiver mais acesso a esse e-mail.</span>
+      </div>
+
+      <button class="botao" type="submit" style="width:100%">Pedir senha nova</button>
+    </form>
+  </div>
+
+  <p class="alternativa">
+    Lembrou sua senha? <a href="login.html">Entrar na plataforma</a>
+  </p>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-neutra" aria-hidden="true">Como funciona</span>
+    <div>
+      <strong>Sem link por e-mail, por enquanto</strong>
+      <p>A plataforma ainda não envia e-mails. A senha nova é gerada por alguém da
+         equipe e enviada para você. Ao entrar com ela, a plataforma pede para você
+         trocar por uma senha sua, em Minha conta.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var f = document.getElementById("form-recuperar");
+  var btn = f.querySelector("button[type=submit]");
+
+  f.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    Bio.aviso("#recado", null);
+    var email = f.email.value.trim();
+    if (!email || email.indexOf("@") < 1) {
+      Bio.aviso("#recado", "Digite o e-mail do seu cadastro.");
+      f.email.focus();
+      return;
+    }
+    Bio.ocupado(btn, true, "Enviando…");
+    Bio.api("/api/recuperar-senha", { method: "POST", corpo: {
+      email: email, mensagem: f.mensagem.value.trim() || null
+    }}).then(function (r) {
+      f.hidden = true;
+      Bio.aviso("#recado", r.mensagem, "ok");
+    }).catch(function (e) {
+      Bio.ocupado(btn, false);
+      Bio.aviso("#recado", e.message);
+    });
+  });
+});
+</script>
+
+</body>
+</html>

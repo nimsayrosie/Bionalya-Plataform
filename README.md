@@ -96,7 +96,7 @@ minoritária no teste dispara o alerta — e mostra o aviso na tela junto do res
 |---|---|
 | <img src="imagens/tela-claro.png" alt="Página inicial da Bionalya em modo claro" width="420"> | <img src="imagens/tela-escuro.png" alt="Página inicial da Bionalya em modo escuro" width="420"> |
 
-São **15 telas** servidas por uma API em FastAPI. O que dá para fazer nelas:
+São **16 telas** servidas por uma API em FastAPI. O que dá para fazer nelas:
 
 - **Analisar um isolado** — marcar os genes de resistência e receber a probabilidade,
   o limiar aplicado e o peso de cada gene na decisão.
@@ -109,6 +109,9 @@ São **15 telas** servidas por uma API em FastAPI. O que dá para fazer nelas:
   treina os dela.
 - **Avisos para a equipe** — importar base e treinar modelo não dependem de ninguém,
   então cada uma dessas ações vira um aviso no painel de quem acompanha.
+- **Recuperar a senha** — quem esqueceu pede pela tela de login; a equipe recebe o
+  pedido e um admin gera uma senha nova, que a pessoa troca ao entrar. Ainda sem
+  link por e-mail.
 - **Controle de acesso** — cadastro com aprovação manual e três papéis cumulativos
   (pesquisador, equipe, administrador).
 
@@ -149,7 +152,7 @@ plataforma/                   a aplicação
     arquivos.py               guarda CSVs e modelos no banco, para sobreviverem ao reinício
     seguranca.py              resumo criptográfico de senha
     config.py                 caminhos, limites e nomes em português
-  web/                        as 15 telas, o CSS, o tema e o cliente da API
+  web/                        as 16 telas, o CSS, o tema e o cliente da API
   modelos/<base>/             um .joblib e um .json por antibiótico de cada base
   Dockerfile                  empacotamento para publicação
   requirements.txt            dependências com versão fixada

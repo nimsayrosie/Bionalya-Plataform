@@ -167,8 +167,13 @@ document.addEventListener("DOMContentLoaded", function () {
         var h = document.createElement("h3");
         h.textContent = a.titulo;
         var etq = document.createElement("span");
-        etq.className = "etiqueta " + (a.tipo === "base_nova" ? "selo-alta" : "etiqueta-neutra");
-        etq.textContent = a.tipo === "base_nova" ? "base nova" : "treino";
+        var TIPO = {
+          base_nova: ["base nova", "selo-alta"],
+          treino: ["treino", "etiqueta-neutra"],
+          senha: ["senha", "etiqueta-resistente"]
+        }[a.tipo] || [a.tipo, "etiqueta-neutra"];
+        etq.className = "etiqueta " + TIPO[1];
+        etq.textContent = TIPO[0];
         topo.append(h, etq);
 
         var p = document.createElement("p");
@@ -176,13 +181,16 @@ document.addEventListener("DOMContentLoaded", function () {
         p.textContent = a.texto + " · " + dataHora(a.criada_em);
 
         div.append(topo, p);
-        if (a.link) {
+        // Só admin gera senha nova; para o resto da equipe o aviso é informativo.
+        var podeAbrir = a.tipo !== "senha" || Bio.pode(Bio.usuario(), "admin");
+        if (a.link && podeAbrir) {
           var acoes = document.createElement("div");
           acoes.className = "acoes";
           var ir = document.createElement("a");
           ir.className = "botao botao-mini botao-claro";
           ir.href = a.link;
-          ir.textContent = a.tipo === "base_nova" ? "Ver a base" : "Ver os modelos";
+          ir.textContent = { base_nova: "Ver a base", treino: "Ver os modelos",
+                             senha: "Gerar senha nova" }[a.tipo] || "Abrir";
           acoes.appendChild(ir);
           div.appendChild(acoes);
         }

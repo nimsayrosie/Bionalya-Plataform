@@ -355,6 +355,13 @@ class CadastroEntrada(BaseModel):
     termos: bool
 
 
+class RecuperarEntrada(BaseModel):
+    # str e não EmailStr: e-mail mal digitado recebe a mesma resposta de
+    # sempre, sem erro de validação que entregue alguma coisa.
+    email: str = Field(max_length=160)
+    mensagem: str | None = Field(default=None, max_length=500)
+
+
 class SessaoEntrada(BaseModel):
     # Aqui é str, não EmailStr: a validação forte fica no cadastro. No login
     # a gente só precisa comparar com o que já está guardado.
@@ -470,6 +477,45 @@ def sair(db: Db, authorization: Annotated[str | None, Header()] = None):
         db.commit()
 
 
+# Recuperação de senha, sem e-mail. A pessoa pede pela tela esqueci-senha.html,
+# a equipe recebe um aviso e um admin gera uma senha nova na tela Usuários,
+# que ele passa para a pessoa. Sem serviço de e-mail, é o caminho que funciona
+# no plano grátis; quando o projeto tiver um, o pedido vira um link por e-mail.
+
+RESPOSTA_RECUPERAR = (
+    "Pedido registrado. Se o e-mail estiver cadastrado, a equipe vai gerar uma "
+    "senha nova e entrar em contato com você pelo e-mail do cadastro.")
+
+
+@app.post("/api/recuperar-senha", tags=["acesso"])
+def recuperar_senha(entrada: RecuperarEntrada, db: Db):
+    """Pede uma senha nova. Responde sempre igual, exista ou não a conta."""
+    email = entrada.email.strip().lower()
+    u = db.execute(select(banco.Usuario)
+                   .where(banco.Usuario.email == email)).scalars().first()
+    # Só vira aviso para conta que consegue entrar: em análise, recusada ou
+    # desativada não adianta senha nova.
+    if u is None or u.status != "aprovado" or not u.ativo:
+        return {"mensagem": RESPOSTA_RECUPERAR}
+
+    # Um pedido em aberto por pessoa basta. Clicar dez vezes não gera dez avisos.
+    ja_pediu = db.execute(
+        select(banco.Notificacao)
+        .where(banco.Notificacao.tipo == "senha",
+               banco.Notificacao.autor == email,
+               banco.Notificacao.lida_em.is_(None))
+    ).scalars().first()
+    if ja_pediu is None:
+        recado = (entrada.mensagem or "").strip()
+        banco.avisar(
+            db, "senha", f"{u.nome} esqueceu a senha",
+            f"{email} pediu uma senha nova."
+            + (f" Recado: “{recado}”" if recado else "")
+            + " Um admin gera a senha nova na tela Usuários.",
+            link=f"usuarios.html?busca={email}", autor=email)
+    return {"mensagem": RESPOSTA_RECUPERAR}
+
+
 @app.get("/api/eu", tags=["acesso"])
 def eu(u: Logado):
     return u.publico()
@@ -562,6 +608,43 @@ def mudar_ativo(usuario_id: int, entrada: AtivoEntrada, adm: Admin, db: Db):
             db.delete(s)
     db.commit()
     return u.publico()
+
+
+@app.post("/api/admin/usuarios/{usuario_id}/senha", tags=["admin"])
+def gerar_senha_nova(usuario_id: int, adm: Admin, db: Db):
+    """Sorteia uma senha nova para alguém que esqueceu a sua.
+
+    A senha aparece uma vez só, na resposta. A conta volta ao estado de "senha
+    inicial" (a tela Minha conta pede para trocar), as sessões abertas caem e
+    os pedidos de senha dessa pessoa saem da lista de avisos.
+    """
+    u = db.get(banco.Usuario, usuario_id)
+    if u is None:
+        raise HTTPException(404, "Usuário não encontrado.")
+    if u.id == adm.id:
+        raise HTTPException(400, "Para trocar a sua própria senha, use Minha conta.")
+
+    senha = seguranca.senha_aleatoria()
+    u.senha_hash = seguranca.hash_senha(senha)
+    u.senha_trocada = False
+    for s in list(u.sessoes):
+        db.delete(s)
+    for n in db.execute(
+        select(banco.Notificacao)
+        .where(banco.Notificacao.tipo == "senha",
+               banco.Notificacao.autor == u.email,
+               banco.Notificacao.lida_em.is_(None))
+    ).scalars().all():
+        n.lida_em = banco.agora()
+        n.lida_por = adm.email
+    db.commit()
+    return {
+        "usuario": u.publico(),
+        "senha": senha,
+        "aviso": "Esta senha aparece uma única vez. Copie agora e mande para a "
+                 "pessoa por um canal que você confie. Quando ela entrar, a "
+                 "plataforma pede para trocar.",
+    }
 
 
 @app.post("/api/admin/usuarios", status_code=201, tags=["admin"])
@@ -754,7 +837,7 @@ def decidir(usuario_id: int, entrada: DecisaoEntrada, equipe: Equipe, db: Db):
 
 @app.get("/api/notificacoes", tags=["equipe"])
 def listar_notificacoes(_: Equipe, db: Db, limite: int = 30):
-    """Avisos do que os pesquisadores fizeram sozinhos: base nova e treino."""
+    """Avisos para a equipe: base nova, treino e pedido de senha nova."""
     itens = db.execute(
         select(banco.Notificacao)
         .order_by(banco.Notificacao.criada_em.desc())

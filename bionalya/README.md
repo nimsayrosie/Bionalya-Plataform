@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > **Esta é a primeira versão das telas, guardada como registro.** Ela não tem banco,
-> não tem API e mostra dados de exemplo fixos. A plataforma de verdade — 15 telas
+> não tem API e mostra dados de exemplo fixos. A plataforma de verdade — 16 telas
 > ligadas à API, com login, banco de dados e os modelos treinados — está em
 > [`plataforma/`](../plataforma/), e o manual dela em
 > [`plataforma/README.md`](../plataforma/README.md). A identidade visual, o modo escuro
@@ -194,7 +194,7 @@ virar API: AUC 0,994 do melhor modelo e 58 genes como variáveis.
 |---|---|---|
 | Lista/busca de isolados | feito | `plataforma/web/isolados.html` |
 | Tela de cadastro recusado | feito | `plataforma/web/acesso-recusado.html` |
-| Recuperação de senha | **pendente** — a tela existe só aqui no protótipo (`esquecisenha.html`); na plataforma o link "Esqueci minha senha" ainda não leva a lugar nenhum e quem esquece depende da equipe | [issue #26](https://github.com/nimsayrosie/Bionalya-Plataform/issues/26) |
+| Recuperação de senha | feito **sem e-mail**: a pessoa pede pela tela, a equipe recebe um aviso e um admin gera a senha nova. O link por e-mail que este protótipo prometia ainda não existe | `plataforma/web/esqueci-senha.html` e `usuarios.html`; [issue #26](https://github.com/nimsayrosie/Bionalya-Plataform/issues/26) |
 | Painel da equipe para aprovar acessos | feito | `plataforma/web/equipe.html` (e `usuarios.html` para o admin) |
 | Carregando e erro na previsão | feito | `nova-analise.html` e `resultado.html` |
 | Validação sem nenhum gene marcado | feito | `nova-analise.html` avisa, e a API também recusa |

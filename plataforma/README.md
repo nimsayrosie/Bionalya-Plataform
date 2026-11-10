@@ -1,7 +1,7 @@
 # Bionalya — plataforma
 
 Previsão de resistência bacteriana a antibióticos a partir dos genes encontrados no
-sequenciamento. Quinze telas, uma API em FastAPI e seis antibióticos com quatro modelos
+sequenciamento. Dezesseis telas, uma API em FastAPI e seis antibióticos com quatro modelos
 treinados cada. A base de *Neisseria gonorrhoeae* vem junto, e dá para importar outras.
 
 > **Protótipo acadêmico, sem validação clínica.** Nada aqui é diagnóstico e nada
@@ -81,6 +81,27 @@ variáveis `BIONALYA_DEMO_EMAIL` e `BIONALYA_DEMO_SENHA` criam, toda vez que a A
 uma conta aberta de demonstração — um pesquisador comum, que analisa e consulta mas não
 libera acesso, não treina modelo e não importa base.
 
+### Quando alguém esquece a senha
+
+A plataforma ainda não envia e-mail (o Render grátis bloqueia o envio, e um serviço de
+e-mail para qualquer destinatário pede domínio próprio). Então a recuperação passa pela
+equipe:
+
+1. Na tela de login, a pessoa clica em **Esqueci minha senha** (`esqueci-senha.html`),
+   digita o e-mail do cadastro e, se quiser, deixa um recado — por exemplo, outro jeito
+   de falar com ela.
+2. A equipe recebe um **aviso** no painel, com o recado. Pedir várias vezes não gera
+   vários avisos: fica um só, até alguém resolver.
+3. Um **admin** abre o aviso (ele já leva para a tela *Usuários* filtrada naquela
+   pessoa) e clica em **Gerar senha nova**. A senha aparece **uma vez só**.
+4. O admin manda a senha para a pessoa por um canal confiável. A senha antiga para de
+   valer, as sessões abertas caem e, ao entrar, a tela *Minha conta* pede para ela
+   trocar por uma senha dela.
+
+A tela responde a mesma coisa para qualquer e-mail, exista ou não a conta, para não
+entregar quem está cadastrado. Conta em análise, recusada ou desativada não gera aviso.
+A sua própria senha o admin troca em *Minha conta*, não por aqui.
+
 ### Atualizando uma versão anterior
 
 Não precisa apagar o `bionalya.db`. Ao subir, a API compara o banco com o código e
@@ -130,12 +151,13 @@ plataforma/
   web/            as telas, o style.css, o tema.js e o app.js
     inicio.html          pública: o que é a plataforma
     login · cadastro · acesso-pendente · acesso-recusado
+    esqueci-senha.html   pública: pedir uma senha nova para a equipe
     index.html           painel
     nova-analise · resultado · modelos · isolados
     bases.html           equipe: importar e listar bases
     antibioticos.html    equipe: treinar e escolher o modelo padrão
     equipe.html          equipe: liberar ou recusar cadastros
-    usuarios.html        admin: papéis, contas e acesso compartilhado
+    usuarios.html        admin: papéis, contas, acesso compartilhado e senha nova
     conta.html           trocar a própria senha
   Dockerfile      para hospedar (na sua máquina não precisa)
   bionalya.db     o banco (gerado na primeira execução)
@@ -398,6 +420,7 @@ POST   /api/cadastro                            solicita acesso
 POST   /api/sessao                              entra, devolve token
 DELETE /api/sessao                              sai
 GET    /api/eu                                  quem está logado
+POST   /api/recuperar-senha                     pede senha nova (vira aviso para a equipe)
 
 GET    /api/termo-base                          o termo e os limites do envio
 GET    /api/bases                               as bases que esta pessoa enxerga
@@ -424,6 +447,7 @@ GET    /api/admin/usuarios                      admin
 POST   /api/admin/usuarios                      admin — cria acesso compartilhável
 POST   /api/admin/usuarios/{id}/papel           admin
 POST   /api/admin/usuarios/{id}/ativo           admin
+POST   /api/admin/usuarios/{id}/senha           admin — gera senha nova para quem esqueceu
 ```
 
 As rotas que falam de um antibiótico usam a chave composta
@@ -495,7 +519,8 @@ desenhada e entra depois.
 ## O que ainda falta
 
 - Log de previsões, junto com a reescrita do RNF10
-- Recuperação de senha por e-mail (hoje só a equipe consegue ajudar quem esqueceu)
+- Recuperação de senha por e-mail, com link. Hoje a pessoa pede pela tela e um admin
+  gera a senha nova; para virar link por e-mail falta um serviço de envio (e um domínio)
 - Upload do CSV do isolado na tela de nova análise (hoje só a marcação de genes)
 - Treino em segundo plano, para a tela não ficar esperando
 - Backup automático do banco da hospedagem (hoje é à mão, com `pg_dump`)
