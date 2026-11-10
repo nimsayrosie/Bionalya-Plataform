@@ -104,8 +104,11 @@ São **15 telas** servidas por uma API em FastAPI. O que dá para fazer nelas:
   antibiótico. A equipe define qual responde por padrão e quem analisa pode trocar na hora.
 - **Explorar a base** — buscar entre os isolados por antibiótico, fenótipo ou gene.
 - **Treinar um antibiótico novo** — direto pela tela, a partir da base escolhida.
-- **Trazer a própria base** — qualquer pesquisador envia um CSV do NCBI; a base fica só
-  para ele até a equipe aprovar o pedido. Cada base treina os seus próprios modelos.
+- **Trazer a própria base** — qualquer pesquisador envia um CSV do NCBI e usa na hora:
+  não há fila de aprovação. Cada base treina os seus próprios modelos, e quem enviou
+  treina os dela.
+- **Avisos para a equipe** — importar base e treinar modelo não dependem de ninguém,
+  então cada uma dessas ações vira um aviso no painel de quem acompanha.
 - **Controle de acesso** — cadastro com aprovação manual e três papéis cumulativos
   (pesquisador, equipe, administrador).
 

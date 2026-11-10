@@ -944,3 +944,52 @@ td.dado {
   font-weight: 700;
 }
 .paginacao .botao:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* --------------------------------------------------------------------------
+   Sub-abas da seção "Bases de dados"
+   Explorar isolados, minhas bases e importar ficam no mesmo lugar do menu;
+   estas abas separam as três coisas dentro da seção.
+   -------------------------------------------------------------------------- */
+.sub-abas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border-bottom: var(--borda);
+  margin-bottom: var(--esp-3);
+  padding-bottom: 0;
+}
+.sub-abas a {
+  display: inline-block;
+  padding: 0.55rem 1.1rem;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--roxo-suave);
+  text-decoration: none;
+  border: 2px solid transparent;
+  border-bottom: none;
+  border-radius: var(--raio) var(--raio) 0 0;
+  margin-bottom: -2px;
+}
+.sub-abas a:hover { color: var(--texto); background: var(--superficie); }
+.sub-abas a[aria-current="page"] {
+  color: var(--texto);
+  background: var(--superficie-destaque);
+  border-color: var(--marca-roxo);
+}
+
+/* Contador de avisos não lidos, no menu */
+.contador {
+  display: inline-block;
+  min-width: 1.35rem;
+  margin-left: 0.4rem;
+  padding: 0 0.3rem;
+  border: 2px solid var(--marca-roxo);
+  border-radius: 999px;
+  background: var(--marca-rosa);
+  color: var(--marca-roxo);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  vertical-align: 1px;
+}

@@ -26,9 +26,9 @@
       <li><a href="index.html" aria-current="page">Painel</a></li>
       <li><a href="nova-analise.html">Nova análise</a></li>
       <li><a href="modelos.html">Modelos</a></li>
-      <li><a href="isolados.html">Base</a></li>
-      <li><a href="bases.html">Bases</a></li>
-      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li><a href="bases.html">Bases de dados</a></li>
+      <li><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="index.html#avisos">Avisos<span class="contador" data-avisos hidden></span></a></li>
       <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
       <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
       <li><a href="conta.html">Minha conta</a></li>
@@ -50,6 +50,20 @@
   </div>
 
   <div class="recado" id="recado" hidden></div>
+
+  <section id="avisos" class="secao" data-papel="equipe" hidden aria-labelledby="t-avisos">
+    <div class="topo-linha">
+      <h2 id="t-avisos">Avisos</h2>
+      <button class="botao botao-mini botao-claro" type="button" id="btn-lidas" hidden>
+        Marcar tudo como lido
+      </button>
+    </div>
+    <p style="color:var(--roxo-suave);margin-top:0.5rem">
+      Importar base e treinar modelo não passam por aprovação: quem envia usa na hora.
+      O que aparece aqui é o registro do que foi feito, para a equipe acompanhar.
+    </p>
+    <div id="lista-avisos" style="margin-top:1rem"></div>
+  </section>
 
   <section aria-labelledby="t-base">
     <h2 id="t-base" class="so-leitor">Resumo da base carregada</h2>
@@ -123,10 +137,80 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  Bio.exigirLogin().then(function () {
+  /* ---------------------------------------------------------------- avisos */
+  function dataHora(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    return isNaN(d) ? "" : d.toLocaleString("pt-BR", {
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+
+  function carregarAvisos() {
+    var alvo = document.getElementById("lista-avisos");
+    var botao = document.getElementById("btn-lidas");
+    return Bio.api("/api/notificacoes").then(function (d) {
+      alvo.innerHTML = "";
+      botao.hidden = !d.nao_lidas;
+      if (!d.avisos.length) {
+        alvo.className = "vazio";
+        alvo.textContent = "Nenhum aviso por enquanto.";
+        return;
+      }
+      alvo.className = "";
+      d.avisos.forEach(function (a) {
+        var div = document.createElement("div");
+        div.className = "cartao solicitacao";
+        if (a.lida) div.style.opacity = "0.6";
+
+        var topo = document.createElement("div");
+        topo.className = "topo-linha";
+        var h = document.createElement("h3");
+        h.textContent = a.titulo;
+        var etq = document.createElement("span");
+        etq.className = "etiqueta " + (a.tipo === "base_nova" ? "selo-alta" : "etiqueta-neutra");
+        etq.textContent = a.tipo === "base_nova" ? "base nova" : "treino";
+        topo.append(h, etq);
+
+        var p = document.createElement("p");
+        p.className = "meta";
+        p.textContent = a.texto + " · " + dataHora(a.criada_em);
+
+        div.append(topo, p);
+        if (a.link) {
+          var acoes = document.createElement("div");
+          acoes.className = "acoes";
+          var ir = document.createElement("a");
+          ir.className = "botao botao-mini botao-claro";
+          ir.href = a.link;
+          ir.textContent = a.tipo === "base_nova" ? "Ver a base" : "Ver os modelos";
+          acoes.appendChild(ir);
+          div.appendChild(acoes);
+        }
+        alvo.appendChild(div);
+      });
+    });
+  }
+
+  document.getElementById("btn-lidas").addEventListener("click", function () {
+    var b = this;
+    Bio.ocupado(b, true, "Marcando…");
+    Bio.api("/api/notificacoes/lidas", { method: "POST", corpo: {} })
+      .then(function () {
+        Bio.ocupado(b, false);
+        return Promise.all([carregarAvisos(), Bio.contarAvisos()]);
+      })
+      .catch(function (e) { Bio.ocupado(b, false); Bio.aviso("#recado", e.message); });
+  });
+
+  Bio.exigirLogin()
+    .then(function (u) {
+      if (Bio.pode(u, "equipe")) carregarAvisos();
+      return u;
+    }).then(function () {
     return Promise.all([Bio.api("/api/base/resumo"), Bio.api("/api/base/antibioticos")]);
   }).then(function (r) {
     var resumo = r[0], lista = r[1];
+    var variasBases = new Set(lista.map(function (a) { return a.base_id; })).size > 1;
 
     function por(campo, valor) {
       var el = document.querySelector('[data-campo="' + campo + '"]');
@@ -168,6 +252,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var nome = document.createElement("span");
       nome.textContent = a.nome;
+      // Com mais de uma base, o mesmo antibiótico aparece repetido: o nome
+      // sozinho não diz de qual base é cada modelo.
+      if (variasBases) {
+        var deQual = document.createElement("span");
+        deQual.style.color = "var(--roxo-suave)";
+        deQual.style.fontSize = "var(--t-xs)";
+        deQual.style.marginLeft = "0.5rem";
+        deQual.textContent = a.base_nome;
+        nome.appendChild(deQual);
+      }
       if (a.alerta) {
         var s = document.createElement("span");
         s.className = "etiqueta selo-baixa";

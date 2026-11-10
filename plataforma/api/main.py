@@ -37,9 +37,28 @@ def iniciar() -> None:
     config.PASTA_ENVIADAS.mkdir(parents=True, exist_ok=True)
     with banco.sessao() as db:
         _semear_bases(db)
+        _liberar_bases_em_analise(db)
         _semear_antibioticos(db)
         _semear_equipe(db)
         _semear_demo(db)
+
+
+def _liberar_bases_em_analise(db: Session) -> None:
+    """Versões anteriores seguravam a base até alguém da equipe aprovar.
+
+    A aprovação deixou de existir: quem envia usa na hora. As bases que
+    ficaram paradas na fila são liberadas aqui, para não sumirem do mapa.
+    """
+    paradas = db.execute(
+        select(banco.BaseDados).where(banco.BaseDados.situacao == "em_analise")
+    ).scalars().all()
+    for b in paradas:
+        b.situacao = "aprovada"
+        b.decidida_em = banco.agora()
+        b.decidida_por = "liberação automática"
+    if paradas:
+        db.commit()
+        print(f"{len(paradas)} base(s) que estavam em análise foram liberadas.")
 
 
 def _semear_bases(db: Session) -> None:
@@ -214,6 +233,18 @@ def exigir_antibiotico_visivel(db: Session, chave: str, u) -> None:
     """A chave de um antibiótico carrega a base dele; vale a mesma regra."""
     base_id, _ = modelos.partir(chave)
     exigir_base(db, base_id, u)
+
+
+def pode_treinar(linha, u) -> bool:
+    """Quem enviou a base treina os modelos dela; a equipe treina em qualquer uma."""
+    return banco.pode(u, "equipe") or dono_da_base(linha, u)
+
+
+def exigir_treino(linha, u) -> None:
+    if not pode_treinar(linha, u):
+        raise HTTPException(
+            403, "Só quem enviou esta base, ou alguém da equipe, pode treinar "
+                 "modelos com ela.")
 
 
 def carregar_base_por_id(db: Session, base_id: str | None, u=None):
@@ -580,12 +611,13 @@ def _conta_admins(db: Session) -> int:
 
 
 @app.post("/api/antibioticos/{antibiotico_id}/padrao", tags=["equipe"])
-def definir_padrao(antibiotico_id: str, entrada: PadraoEntrada, _: Equipe, db: Db):
+def definir_padrao(antibiotico_id: str, entrada: PadraoEntrada, u: Logado, db: Db):
     """Define qual dos modelos treinados responde por padrão."""
     linha = db.get(banco.Antibiotico, antibiotico_id)
     meta = modelos.metadados(antibiotico_id)
     if linha is None or meta is None:
         raise HTTPException(404, "Antibiótico não encontrado.")
+    exigir_treino(exigir_base(db, linha.base_id, u), u)
 
     validos = {d["id"] for d in (meta.get("disponiveis") or [])}
     if entrada.modelo is not None and entrada.modelo not in validos:
@@ -713,6 +745,36 @@ def decidir(usuario_id: int, entrada: DecisaoEntrada, equipe: Equipe, db: Db):
 
 
 # --------------------------------------------------------------------------- #
+# Avisos para a equipe
+# --------------------------------------------------------------------------- #
+
+@app.get("/api/notificacoes", tags=["equipe"])
+def listar_notificacoes(_: Equipe, db: Db, limite: int = 30):
+    """Avisos do que os pesquisadores fizeram sozinhos: base nova e treino."""
+    itens = db.execute(
+        select(banco.Notificacao)
+        .order_by(banco.Notificacao.criada_em.desc())
+    ).scalars().all()[:max(1, min(limite, 100))]
+    nao_lidas = len([n for n in db.execute(
+        select(banco.Notificacao).where(banco.Notificacao.lida_em.is_(None))
+    ).scalars().all()])
+    return {"nao_lidas": nao_lidas, "avisos": [n.publico() for n in itens]}
+
+
+@app.post("/api/notificacoes/lidas", tags=["equipe"])
+def marcar_lidas(equipe: Equipe, db: Db):
+    """Marca tudo como lido. O aviso é da equipe inteira, não de cada pessoa."""
+    pendentes = db.execute(
+        select(banco.Notificacao).where(banco.Notificacao.lida_em.is_(None))
+    ).scalars().all()
+    for n in pendentes:
+        n.lida_em = banco.agora()
+        n.lida_por = equipe.email
+    db.commit()
+    return {"marcadas": len(pendentes)}
+
+
+# --------------------------------------------------------------------------- #
 # Bases de dados
 # --------------------------------------------------------------------------- #
 
@@ -772,7 +834,8 @@ def listar_bases(u: Logado, db: Db):
         d["posso_apagar"] = (b.id != config.BASE_PADRAO
                              and (d["minha"] or banco.pode(u, "admin")))
         d["posso_baixar"] = d["minha"] or banco.pode(u, "equipe")
-        d["posso_decidir"] = (b.situacao == "em_analise" and banco.pode(u, "equipe"))
+        # Quem enviou a base treina os modelos dela; a equipe treina em qualquer uma.
+        d["posso_treinar"] = d["minha"] or banco.pode(u, "equipe")
         saida.append(d)
     return saida
 
@@ -786,9 +849,10 @@ async def importar_base(u: Logado, db: Db,
                         termo: bool = Form(False)):
     """Recebe um CSV ou TSV de isolados e passa a servi-lo como mais uma base.
 
-    Da equipe para cima, a base já entra valendo. Pesquisador manda um pedido:
-    a base fica só para ele até alguém da equipe aprovar, e ele precisa aceitar
-    o termo de responsabilidade — o dado é dele e a conta é dele.
+    A base entra valendo na hora, para quem a enviou e para todo mundo: não há
+    fila de aprovação. Quem não é da equipe precisa aceitar o termo de
+    responsabilidade — o dado é dele e a conta é dele — e a equipe recebe um
+    aviso de que a base entrou.
     """
     da_equipe = banco.pode(u, "equipe")
 
@@ -858,15 +922,15 @@ async def importar_base(u: Logado, db: Db,
         destino.unlink(missing_ok=True)
         raise HTTPException(422, f"Arquivo recusado: {e}")
 
-    situacao = "aprovada" if da_equipe else "em_analise"
+    situacao = "aprovada"
     db.add(banco.BaseDados(
         id=base_id, nome=nome.strip(), especie=especie.strip() or "—",
         arquivo=destino.name, origem="upload",
         n_isolados=int(len(df)), n_com_ast=n_ast,
         enviada_por=u.email, observacao=(observacao or "").strip() or None,
         situacao=situacao,
-        decidida_em=banco.agora() if da_equipe else None,
-        decidida_por=u.email if da_equipe else None,
+        decidida_em=banco.agora(),
+        decidida_por=u.email,
         termo_aceito=True if da_equipe else bool(termo),
         termo_versao=config.TERMO_BASE_VERSAO,
     ))
@@ -880,8 +944,15 @@ async def importar_base(u: Logado, db: Db,
                   "classes. A base entra na plataforma para consulta, mas não dá "
                   "para treinar modelo com ela.")
     if not da_equipe:
-        recado += (" O pedido foi enviado: por enquanto só você enxerga esta base. "
-                   "Assim que a equipe aprovar, ela fica disponível para todo mundo.")
+        recado += (" A base já está valendo: você pode treinar os modelos dela agora "
+                   "mesmo, na tela Antibióticos. A equipe foi avisada.")
+        banco.avisar(
+            db, "base_nova",
+            f"{u.nome} importou a base “{nome.strip()}”",
+            f"{int(len(df))} isolados, {n_ast} com antibiograma, espécie "
+            f"{especie.strip() or '—'}. "
+            f"{len(treinaveis)} antibiótico(s) com dado suficiente para treinar.",
+            link="bases.html", autor=u.email)
 
     return {
         "id": base_id, "nome": nome.strip(), "especie": especie.strip(),
@@ -891,29 +962,6 @@ async def importar_base(u: Logado, db: Db,
                        for a in treinaveis],
         "mensagem": recado,
     }
-
-
-@app.post("/api/bases/{base_id}/decidir", tags=["equipe"])
-def decidir_base(base_id: str, entrada: DecisaoEntrada, equipe: Equipe, db: Db):
-    """Aprova ou recusa um pedido de base. Recusar apaga o arquivo enviado."""
-    linha = db.get(banco.BaseDados, base_id)
-    if linha is None:
-        raise HTTPException(404, "Base não encontrada.")
-    if linha.situacao != "em_analise":
-        raise HTTPException(400, f"Esta base já foi {linha.situacao.replace('_', ' ')}.")
-
-    linha.situacao = "aprovada" if entrada.aprovar else "recusada"
-    linha.decidida_em = banco.agora()
-    linha.decidida_por = equipe.email
-    linha.motivo_recusa = None if entrada.aprovar else (entrada.motivo or None)
-    if not entrada.aprovar:
-        # Recusou: o arquivo sai do disco na hora. Guardar dado de alguém que
-        # a gente decidiu não aceitar seria o pior dos dois mundos. O registro
-        # do pedido fica, para a pessoa ver o motivo.
-        caminho_da_base(linha).unlink(missing_ok=True)
-        esquecer_base(base_id)
-    db.commit()
-    return linha.publico()
 
 
 @app.get("/api/bases/{base_id}/arquivo", tags=["base"])
@@ -1011,6 +1059,10 @@ def listar_antibioticos(u: Logado, db: Db, base: str | None = None):
         visiveis = {b.id for b in db.execute(select(banco.BaseDados)).scalars().all()
                     if base_visivel(b, u)}
         linhas = [a for a in linhas if a.base_id in visiveis]
+    # O nome da base, para a tela conseguir diferenciar o mesmo antibiótico
+    # treinado em bases diferentes — a espécie costuma ser a mesma.
+    nomes_de_base = {b.id: b.nome for b in
+                     db.execute(select(banco.BaseDados)).scalars().all()}
     saida = []
     for a in linhas:
         m = por_id.get(a.id)
@@ -1019,6 +1071,7 @@ def listar_antibioticos(u: Logado, db: Db, base: str | None = None):
         saida.append({
             "id": a.id, "nome": a.nome, "nome_base": a.nome_base,
             "base_id": a.base_id, "antibiotico": m["id"],
+            "base_nome": nomes_de_base.get(a.base_id, a.base_id),
             "especie": a.especie, "ativo": a.ativo,
             "n_isolados": m["n_total"], "n_resistente": m["n_resistente"],
             "n_sensivel": m["n_sensivel"], "n_features": m["n_features"],
@@ -1040,10 +1093,11 @@ def listar_antibioticos(u: Logado, db: Db, base: str | None = None):
 
 
 @app.get("/api/antibioticos/disponiveis", tags=["equipe"])
-def disponiveis(u: Equipe, db: Db, base: str | None = None):
+def disponiveis(u: Logado, db: Db, base: str | None = None):
     """O que existe na base escolhida e ainda não virou modelo."""
     base_id = base or config.BASE_PADRAO
     linha, df = carregar_base_por_id(db, base_id, u)
+    exigir_treino(linha, u)
     encontrados = treino.antibioticos_disponiveis(df)
     ja_tem = {a.id for a in db.execute(
         select(banco.Antibiotico).where(banco.Antibiotico.base_id == base_id)
@@ -1092,14 +1146,11 @@ def comparacao(u: Logado, db: Db, antibiotico: str | None = None):
 
 
 @app.post("/api/antibioticos/treinar", tags=["equipe"])
-def treinar_novo(entrada: TreinoEntrada, equipe: Equipe, db: Db):
+def treinar_novo(entrada: TreinoEntrada, u: Logado, db: Db):
     """Treina um antibiótico novo a partir da base escolhida. Leva alguns segundos."""
-    base_linha, df = carregar_base_por_id(db, entrada.base, equipe)
+    base_linha, df = carregar_base_por_id(db, entrada.base, u)
     base_id = base_linha.id
-    if base_linha.situacao != "aprovada":
-        raise HTTPException(
-            400, f"A base '{base_linha.nome}' ainda está em análise. Aprove o "
-                 "pedido antes de treinar com ela.")
+    exigir_treino(base_linha, u)
 
     alvo = entrada.antibiotico.strip().lower()
     candidatos = {a["nome_base"]: a for a in treino.antibioticos_disponiveis(df)}
@@ -1127,11 +1178,21 @@ def treinar_novo(entrada: TreinoEntrada, equipe: Equipe, db: Db):
     if linha is None:
         db.add(banco.Antibiotico(
             id=chave, base_id=base_id, nome_base=alvo, nome=nome,
-            especie=base_linha.especie, ativo=True, criado_por=equipe.email))
+            especie=base_linha.especie, ativo=True, criado_por=u.email))
     else:
         linha.nome = nome
         linha.ativo = True
     db.commit()
+
+    if not banco.pode(u, "equipe"):
+        m = meta.get("metricas") or {}
+        banco.avisar(
+            db, "treino",
+            f"{u.nome} treinou {nome} na base “{base_linha.nome}”",
+            f"Modelo escolhido: {meta.get('modelo_nome')}. "
+            f"AUC {m.get('auc'):.3f}. Confiança {meta.get('confianca')}."
+            + (f" Alerta: {meta.get('alerta')}" if meta.get("alerta") else ""),
+            link="modelos.html", autor=u.email)
 
     return {"id": chave, "base_id": base_id, "base_nome": base_linha.nome,
             "nome": nome, "modelo": meta.get("modelo_nome"),

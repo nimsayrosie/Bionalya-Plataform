@@ -44,9 +44,9 @@
       <li><a href="index.html">Painel</a></li>
       <li><a href="nova-analise.html">Nova análise</a></li>
       <li><a href="modelos.html">Modelos</a></li>
-      <li><a href="isolados.html">Base</a></li>
-      <li><a href="bases.html" aria-current="page">Bases</a></li>
-      <li data-papel="equipe" hidden><a href="antibioticos.html">Antibióticos</a></li>
+      <li><a href="bases.html" aria-current="page">Bases de dados</a></li>
+      <li><a href="antibioticos.html">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="index.html#avisos">Avisos<span class="contador" data-avisos hidden></span></a></li>
       <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
       <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
       <li><a href="conta.html">Minha conta</a></li>
@@ -61,6 +61,12 @@
 
 <main id="conteudo" class="pagina">
 
+  <nav class="sub-abas" aria-label="Seções de bases de dados">
+    <a href="isolados.html">Explorar isolados</a>
+    <a href="bases.html" aria-current="page">Minhas bases</a>
+    <a href="bases.html#enviar">Importar base</a>
+  </nav>
+
   <div class="cabecalho-pagina">
     <h1>Bases de dados</h1>
     <p>A plataforma já vem com a base de <i>Neisseria gonorrhoeae</i> do NCBI Pathogen
@@ -70,22 +76,13 @@
 
   <div class="recado" id="recado" hidden></div>
 
-  <section id="bloco-pedidos" data-papel="equipe" hidden aria-labelledby="t-pedidos">
-    <h2 id="t-pedidos">Pedidos aguardando análise</h2>
-    <p style="color:var(--roxo-suave);margin-top:0.5rem">
-      Bases enviadas por pesquisadores. Enquanto o pedido estiver aqui, só quem enviou
-      enxerga a base. Recusar apaga o arquivo do servidor na hora.
-    </p>
-    <div id="pedidos" style="margin-top:1rem"></div>
-  </section>
-
   <section class="secao" aria-labelledby="t-lista">
     <h2 id="t-lista">Bases disponíveis</h2>
     <div id="lista" class="carregando" style="margin-top:1rem">Carregando</div>
   </section>
 
-  <section class="secao" aria-labelledby="t-nova">
-    <h2 id="t-nova">Enviar uma base</h2>
+  <section class="secao" id="enviar" aria-labelledby="t-nova">
+    <h2 id="t-nova">Importar uma base</h2>
     <p id="explica-envio" style="color:var(--roxo-suave);margin-bottom:1rem"></p>
 
     <div class="grade grade-2">
@@ -130,7 +127,7 @@
             </div>
           </div>
 
-          <button class="botao" type="submit" id="btn-enviar">Enviar base</button>
+          <button class="botao" type="submit" id="btn-enviar">Importar base</button>
         </form>
       </div>
 
@@ -146,8 +143,8 @@
         </ol>
         <p style="color:var(--roxo-suave);margin-top:1rem;font-size:var(--t-sm)">
           Se algo faltar, o arquivo é recusado e apagado, e a mensagem diz exatamente o
-          que não foi encontrado. Quando passa, a resposta já lista quais antibióticos
-          daquela base têm isolados suficientes para treinar.
+          que não foi encontrado. Quando passa, a base já está no ar e a resposta lista
+          quais antibióticos dela têm isolados suficientes para treinar.
         </p>
         <div id="saida" style="margin-top:1rem"></div>
       </div>
@@ -157,11 +154,11 @@
   <div class="aviso">
     <span class="etiqueta etiqueta-neutra" aria-hidden="true">Importante</span>
     <div>
-      <strong>Enviar não treina</strong>
-      <p>A base entra para consulta, mas os modelos dela começam vazios. Quem treina é a
-         equipe, na tela <a href="antibioticos.html">Antibióticos</a>, depois que o
-         pedido for aprovado. Você pode baixar de volta e remover a sua base a qualquer
-         momento — remover apaga junto os modelos treinados com ela.</p>
+      <strong>Importar não treina</strong>
+      <p>A base entra valendo na hora, mas os modelos dela começam vazios. Quem enviou
+         treina os próprios modelos na tela <a href="antibioticos.html">Antibióticos</a>,
+         escolhendo um antibiótico de cada vez. Você pode baixar de volta e remover a sua
+         base quando quiser — remover apaga junto os modelos treinados com ela.</p>
     </div>
   </div>
 
@@ -175,17 +172,10 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   var lista = document.getElementById("lista");
-  var pedidos = document.getElementById("pedidos");
   var form = document.getElementById("form-base");
   var btn = document.getElementById("btn-enviar");
   var saida = document.getElementById("saida");
   var eu = null, souEquipe = false;
-
-  var SITUACAO = {
-    em_analise: ["em análise", "etiqueta-neutra"],
-    aprovada: ["aprovada", "selo-alta"],
-    recusada: ["recusada", "etiqueta-resistente"]
-  };
 
   function data(iso) {
     if (!iso) return "—";
@@ -212,14 +202,10 @@ document.addEventListener("DOMContentLoaded", function () {
     selos.style.gap = "0.4rem";
     selos.style.flexWrap = "wrap";
 
-    if (b.padrao) {
-      selos.appendChild(selo("vem de fábrica", "etiqueta-neutra"));
-    } else {
-      var cfg = SITUACAO[b.situacao] || ["—", "etiqueta-neutra"];
-      selos.appendChild(selo(cfg[0], cfg[1]));
-    }
+    selos.appendChild(b.padrao ? selo("vem de fábrica", "etiqueta-neutra")
+                               : selo("importada", "selo-alta"));
     if (b.minha) selos.appendChild(selo("sua", "selo-media"));
-    if (!b.arquivo_presente && b.situacao !== "recusada") {
+    if (!b.arquivo_presente) {
       selos.appendChild(selo("arquivo ausente", "etiqueta-resistente",
         "A base está registrada mas o arquivo não está no servidor."));
     }
@@ -252,25 +238,24 @@ document.addEventListener("DOMContentLoaded", function () {
       div.appendChild(obs);
     }
 
-    if (b.situacao === "recusada") {
-      var rec = document.createElement("div");
-      rec.className = "recado recado-erro";
-      rec.style.marginTop = "0.75rem";
-      rec.textContent = "Pedido recusado" +
-        (b.decidida_por ? " por " + b.decidida_por : "") + "." +
-        (b.motivo_recusa ? " Motivo: " + b.motivo_recusa : "");
-      div.appendChild(rec);
-    }
-
     var acoes = document.createElement("div");
     acoes.className = "acoes";
 
-    if (b.situacao === "aprovada" && b.arquivo_presente) {
+    if (b.arquivo_presente) {
       var ver = document.createElement("a");
       ver.className = "botao botao-mini botao-claro";
       ver.href = "isolados.html?base=" + encodeURIComponent(b.id);
       ver.textContent = "Explorar isolados";
       acoes.appendChild(ver);
+    }
+
+    if (b.posso_treinar && b.arquivo_presente) {
+      var treinar = document.createElement("a");
+      treinar.className = "botao botao-mini";
+      treinar.href = "antibioticos.html?base=" + encodeURIComponent(b.id);
+      treinar.textContent = b.n_modelos ? "Treinar mais um antibiótico"
+                                        : "Treinar os modelos desta base";
+      acoes.appendChild(treinar);
     }
 
     if (b.posso_baixar && b.arquivo_presente) {
@@ -340,103 +325,19 @@ document.addEventListener("DOMContentLoaded", function () {
     return del;
   }
 
-  /* ----------------------------------------------- fila de pedidos (equipe) */
-  function cartaoPedido(b) {
-    var div = cartao(b);
-
-    var acoes = document.createElement("div");
-    acoes.className = "acoes";
-
-    var aprovar = document.createElement("button");
-    aprovar.type = "button";
-    aprovar.className = "botao botao-mini";
-    aprovar.textContent = "Aprovar";
-    aprovar.addEventListener("click", function () {
-      decidir(b, true, null, aprovar);
-    });
-
-    var recusar = document.createElement("button");
-    recusar.type = "button";
-    recusar.className = "botao botao-mini botao-recusar";
-    recusar.textContent = "Recusar";
-
-    var caixa = document.createElement("div");
-    caixa.hidden = true;
-    caixa.style.marginTop = "0.75rem";
-    var campo = document.createElement("div");
-    campo.className = "campo";
-    var rot = document.createElement("label");
-    rot.textContent = "Por que está recusando";
-    rot.htmlFor = "motivo-" + b.id;
-    var txt = document.createElement("textarea");
-    txt.id = "motivo-" + b.id;
-    txt.rows = 2;
-    txt.placeholder = "a pessoa vai ler isto — diga o que faltou";
-    var ok = document.createElement("button");
-    ok.type = "button";
-    ok.className = "botao botao-mini botao-recusar";
-    ok.style.marginTop = "0.5rem";
-    ok.textContent = "Confirmar recusa (apaga o arquivo)";
-    ok.addEventListener("click", function () {
-      decidir(b, false, txt.value.trim() || null, ok);
-    });
-    campo.append(rot, txt, ok);
-    caixa.appendChild(campo);
-
-    recusar.addEventListener("click", function () {
-      caixa.hidden = !caixa.hidden;
-      if (!caixa.hidden) txt.focus();
-    });
-
-    acoes.append(aprovar, recusar);
-    div.append(acoes, caixa);
-    return div;
-  }
-
-  function decidir(b, aprovar, motivo, botao) {
-    Bio.ocupado(botao, true, "Salvando…");
-    Bio.api("/api/bases/" + encodeURIComponent(b.id) + "/decidir", {
-      method: "POST", corpo: { aprovar: aprovar, motivo: motivo }
-    }).then(function () {
-      Bio.aviso("#recado", aprovar
-        ? "Base “" + b.nome + "” aprovada: agora todo mundo enxerga."
-        : "Pedido de “" + b.nome + "” recusado e arquivo apagado.", "ok");
-      carregar();
-    }).catch(function (e) {
-      Bio.ocupado(botao, false);
-      Bio.aviso("#recado", e.message);
-    });
-  }
-
   /* ------------------------------------------------------------- carregar */
   function carregar() {
     lista.className = "carregando";
     lista.textContent = "Carregando";
     return Bio.api("/api/bases").then(function (bases) {
-      var emAnalise = bases.filter(function (b) { return b.posso_decidir; });
-      var resto = bases.filter(function (b) { return !b.posso_decidir; });
-
-      var bloco = document.getElementById("bloco-pedidos");
-      if (souEquipe) {
-        bloco.hidden = false;
-        pedidos.innerHTML = "";
-        if (!emAnalise.length) {
-          pedidos.className = "vazio";
-          pedidos.textContent = "Nenhum pedido aguardando.";
-        } else {
-          pedidos.className = "";
-          emAnalise.forEach(function (b) { pedidos.appendChild(cartaoPedido(b)); });
-        }
-      }
-
       lista.className = "";
       lista.innerHTML = "";
-      if (!resto.length) {
+      if (!bases.length) {
         lista.className = "vazio";
         lista.textContent = "Nenhuma base disponível.";
         return;
       }
-      resto.forEach(function (b) { lista.appendChild(cartao(b)); });
+      bases.forEach(function (b) { lista.appendChild(cartao(b)); });
     });
   }
 
@@ -498,14 +399,12 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         saida.appendChild(dl);
 
-        if (souEquipe && r.situacao === "aprovada") {
-          var ir = document.createElement("a");
-          ir.className = "botao botao-mini";
-          ir.style.marginTop = "0.75rem";
-          ir.href = "antibioticos.html";
-          ir.textContent = "Treinar os modelos desta base";
-          saida.appendChild(ir);
-        }
+        var ir = document.createElement("a");
+        ir.className = "botao botao-mini";
+        ir.style.marginTop = "0.75rem";
+        ir.href = "antibioticos.html?base=" + encodeURIComponent(r.id);
+        ir.textContent = "Treinar os modelos desta base";
+        saida.appendChild(ir);
       }
       carregar();
     }).catch(function (e) {
@@ -520,9 +419,10 @@ document.addEventListener("DOMContentLoaded", function () {
     eu = u;
     souEquipe = Bio.pode(u, "equipe");
     document.getElementById("explica-envio").textContent = souEquipe
-      ? "Como você é da equipe, a base que você envia já entra valendo para todo mundo."
-      : "A base que você envia fica só para você até alguém da equipe aprovar o pedido. "
-      + "Você pode baixá-la de volta e removê-la quando quiser.";
+      ? "A base que você envia entra valendo na hora, para você e para todo mundo."
+      : "A base entra valendo assim que o envio termina: não há fila de aprovação. "
+      + "Você treina os modelos dela, baixa de volta e remove quando quiser. "
+      + "A equipe é avisada de que a base entrou.";
     return Bio.api("/api/termo-base");
   }).then(function (t) {
     document.getElementById("termo-texto").textContent = t.texto;

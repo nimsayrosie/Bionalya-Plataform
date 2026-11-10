@@ -26,9 +26,9 @@
       <li><a href="index.html">Painel</a></li>
       <li><a href="nova-analise.html">Nova análise</a></li>
       <li><a href="modelos.html">Modelos</a></li>
-      <li><a href="isolados.html">Base</a></li>
-      <li><a href="bases.html">Bases</a></li>
-      <li data-papel="equipe" hidden><a href="antibioticos.html" aria-current="page">Antibióticos</a></li>
+      <li><a href="bases.html">Bases de dados</a></li>
+      <li><a href="antibioticos.html" aria-current="page">Antibióticos</a></li>
+      <li data-papel="equipe" hidden><a href="index.html#avisos">Avisos<span class="contador" data-avisos hidden></span></a></li>
       <li data-papel="equipe" hidden><a href="equipe.html">Acessos</a></li>
       <li data-papel="admin" hidden><a href="usuarios.html">Usuários</a></li>
       <li><a href="conta.html">Minha conta</a></li>
@@ -93,8 +93,9 @@
             <label for="base">Base de dados</label>
             <select id="base"><option>Carregando…</option></select>
             <span class="ajuda">
-              Cada base treina os seus próprios modelos. Para importar outra, use a tela
-              <a href="bases.html">Bases</a>.
+              Cada base treina os seus próprios modelos. Só aparecem aqui as bases
+              em que você pode treinar. Para trazer outra, use
+              <a href="bases.html#enviar">Importar base</a>.
             </span>
           </div>
 
@@ -361,24 +362,34 @@ document.addEventListener("DOMContentLoaded", function () {
     carregarCandidatos().catch(function (e) { Bio.aviso("#recado", e.message); });
   });
 
-  Bio.exigirLogin({ papel: "equipe" })
+  Bio.exigirLogin()
     .then(function () { return Bio.api("/api/bases"); })
     .then(function (bases) {
       var sel = document.getElementById("base");
       sel.innerHTML = "";
-      // Só as aprovadas: a API recusa treinar com base que ainda é um pedido.
-      bases.filter(function (b) {
-        return b.arquivo_presente && b.situacao === "aprovada";
-      }).forEach(function (b) {
+      // Só as bases em que esta pessoa pode treinar: a sua, ou qualquer uma
+      // se ela for da equipe. A API recusa as outras de qualquer forma.
+      var minhas = bases.filter(function (b) {
+        return b.arquivo_presente && b.posso_treinar;
+      });
+      minhas.forEach(function (b) {
         var o = document.createElement("option");
         o.value = b.id; o.textContent = b.nome;
         sel.appendChild(o);
       });
-      if (!sel.options.length) {
-        sel.innerHTML = "<option>Nenhuma base com arquivo</option>";
+      if (!minhas.length) {
+        sel.innerHTML = "<option>Você ainda não tem base para treinar</option>";
         sel.disabled = true;
+        document.getElementById("btn-treinar").disabled = true;
+        Bio.aviso("#recado", "Para treinar um modelo, importe primeiro a sua base " +
+          "na tela Bases de dados.", "ok");
       }
-      sel.disabled = sel.disabled || bases.length < 2;
+      // Vindo de bases.html?base=…, já abre na base escolhida.
+      var pedida = new URLSearchParams(location.search).get("base");
+      if (pedida && minhas.some(function (b) { return b.id === pedida; })) {
+        sel.value = pedida;
+      }
+      sel.disabled = sel.disabled || minhas.length < 2;
       return Promise.all([carregarAtivos(), carregarCandidatos()]);
     })
     .catch(function (e) {

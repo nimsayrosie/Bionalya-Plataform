@@ -114,9 +114,9 @@ class Sessao(Base):
 class BaseDados(Base):
     """Um CSV de isolados. Vem de fábrica ou alguém subiu pela plataforma.
 
-    Quem é da equipe sobe e a base já entra valendo. Quem é pesquisador manda
-    um **pedido**: a base fica só para ele até alguém da equipe aprovar. É a
-    mesma ideia do cadastro de usuário, que também passa por análise.
+    Quem envia a base pode usá-la na hora, treinar os modelos dela e remover
+    quando quiser — não há fila de aprovação. A equipe recebe um aviso
+    (ver Notificacao) e pode remover depois, se for o caso.
     """
     __tablename__ = "bases"
 
@@ -131,8 +131,10 @@ class BaseDados(Base):
     enviada_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # em_analise = só o dono e a equipe veem. aprovada = todo mundo vê.
-    # As bases que já existiam entram como aprovada na migração.
+    # Hoje toda base entra como "aprovada". A coluna continua existindo porque
+    # bancos de versões anteriores têm linhas em "em_analise", que a partida
+    # promove, e porque uma eventual volta da moderação não precisaria de
+    # migração de esquema.
     situacao: Mapped[str] = mapped_column(String(16), default="aprovada")
     decidida_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     decidida_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
@@ -175,6 +177,44 @@ class Antibiotico(Base):
     modelo_padrao: Mapped[str | None] = mapped_column(String(40), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, default=agora)
     criado_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
+
+
+class Notificacao(Base):
+    """Aviso para a equipe sobre o que os pesquisadores fizeram sozinhos.
+
+    Importar base e treinar modelo não passam mais por aprovação; em vez de
+    segurar o trabalho da pessoa, a plataforma avisa quem acompanha. O aviso é
+    coletivo: qualquer pessoa da equipe lê e marca como lido para todas.
+    """
+    __tablename__ = "notificacoes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(32))        # base_nova | treino
+    titulo: Mapped[str] = mapped_column(String(200))
+    texto: Mapped[str] = mapped_column(Text, default="")
+    link: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    autor: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    criada_em: Mapped[datetime] = mapped_column(DateTime, default=agora)
+    lida_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    lida_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
+
+    def publico(self) -> dict:
+        return {
+            "id": self.id, "tipo": self.tipo, "titulo": self.titulo,
+            "texto": self.texto, "link": self.link, "autor": self.autor,
+            "criada_em": self.criada_em.isoformat() if self.criada_em else None,
+            "lida": self.lida_em is not None,
+            "lida_por": self.lida_por,
+        }
+
+
+def avisar(db: Session, tipo: str, titulo: str, texto: str = "",
+           link: str | None = None, autor: str | None = None) -> Notificacao:
+    """Registra um aviso para a equipe. Não falha a operação que o gerou."""
+    n = Notificacao(tipo=tipo, titulo=titulo, texto=texto, link=link, autor=autor)
+    db.add(n)
+    db.commit()
+    return n
 
 
 motor = create_engine(f"sqlite:///{config.BANCO}", echo=False,

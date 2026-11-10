@@ -110,6 +110,7 @@
     document.querySelectorAll("[data-so-equipe]").forEach(function (el) {
       el.hidden = !pode(u, "equipe");
     });
+    if (pode(u, "equipe")) contarAvisos();
     var sair = document.querySelector("[data-sair]");
     if (sair && !sair.dataset.ligado) {
       sair.dataset.ligado = "1";
@@ -122,7 +123,21 @@
     }
   }
 
-  /* ---------------------------------------------------------------- avisos */
+  /* ------------------------------------------------- avisos para a equipe */
+  /* Importar base e treinar modelo não passam mais por aprovação. Em vez de
+     segurar o trabalho de quem envia, a plataforma avisa a equipe: este é o
+     contador que aparece no menu. */
+  function contarAvisos() {
+    return api("/api/notificacoes?limite=1").then(function (d) {
+      document.querySelectorAll("[data-avisos]").forEach(function (el) {
+        el.textContent = d.nao_lidas;
+        el.hidden = !d.nao_lidas;
+      });
+      return d.nao_lidas;
+    }).catch(function () { /* contador é enfeite: nunca derruba a tela */ });
+  }
+
+  /* ---------------------------------------------------------------- recados */
   function aviso(destino, texto, tipo) {
     var el = typeof destino === "string" ? document.querySelector(destino) : destino;
     if (!el) return;
@@ -171,7 +186,7 @@
     api: api, token: token, usuario: usuario,
     entrarComSessao: entrarComSessao, limparSessao: limparSessao,
     exigirLogin: exigirLogin, pintarCabecalho: pintarCabecalho, pode: pode,
-    aviso: aviso, ocupado: ocupado,
+    aviso: aviso, ocupado: ocupado, contarAvisos: contarAvisos,
     pct: pct, num: num, inteiro: inteiro, sinal: sinal,
     guardarResultado: guardarResultado, lerResultado: lerResultado
   };

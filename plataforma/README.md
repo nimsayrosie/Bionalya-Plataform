@@ -189,34 +189,49 @@ bactéria resistente), ao custo de mais alarmes falsos.
 
 ## Trazer a própria base
 
-Na tela **Bases**, aberta a todo mundo. Serve para trazer outra espécie, outro recorte
-ou dados do próprio laboratório, sem mexer em código.
+Na seção **Bases de dados**, aberta a todo mundo. Serve para trazer outra espécie, outro
+recorte ou dados do próprio laboratório, sem mexer em código.
 
-Quem envia muda o que acontece:
+**Não há fila de aprovação.** A base entra valendo assim que o envio termina — para quem
+enviou e para todo mundo — e quem enviou já pode treinar os modelos dela na tela
+*Antibióticos*. A equipe não libera nada; ela é **avisada**: cada importação e cada
+treino feito por um pesquisador vira um aviso no painel (ver *Avisos* abaixo). Se algo
+estiver errado, o admin remove a base depois, em vez de segurar o trabalho de todo mundo
+antes.
 
-| Quem envia | O que acontece |
-|---|---|
-| **pesquisador** | vira um **pedido**: a base fica só para ele até a equipe aprovar |
-| **equipe** ou **admin** | a base já entra valendo para todo mundo |
+Quem não é da equipe aceita um **termo de responsabilidade** antes de enviar — declara
+que tem autorização para usar aquele dado e que não há informação que identifique
+pacientes. A versão do texto aceito fica guardada junto com o registro, não só um "sim":
+se o termo mudar, dá para saber o que a pessoa leu. O texto vive em `config.TERMO_BASE`
+e a tela lê pela rota `/api/termo-base`, para o que está escrito na página e o que é
+guardado serem a mesma coisa.
 
-O pesquisador aceita um **termo de responsabilidade** antes de enviar — ele declara que
-tem autorização para usar aquele dado e que não há informação que identifique pacientes.
-A versão do texto aceito fica guardada junto com o registro, não só um "sim": se o termo
-mudar, dá para saber o que a pessoa leu. O texto vive em `config.TERMO_BASE` e a tela lê
-pela rota `/api/termo-base`, para o que está escrito na página e o que é guardado serem
-a mesma coisa.
-
-Cada pesquisador pode ter **três bases** ao mesmo tempo, contando as que ainda estão em
-análise (`config.MAX_BASES_POR_PESQUISADOR`). Sem limite, o disco acaba.
+Cada pesquisador pode ter **três bases** ao mesmo tempo
+(`config.MAX_BASES_POR_PESQUISADOR`). Sem limite, o disco acaba.
 
 Quem enviou pode **baixar de volta** o arquivo e **remover** a própria base quando
 quiser; remover apaga junto os modelos treinados com ela. Admin remove qualquer uma,
-menos a de fábrica. Recusar um pedido **apaga o arquivo na hora** — guardar dado de
-alguém que a plataforma decidiu não aceitar seria o pior dos dois mundos —, mas o
-registro do pedido fica, com o motivo, para quem enviou poder ler.
+menos a de fábrica.
 
-Treinar continua sendo coisa da equipe, e só em base aprovada: a API recusa treinar com
-um pedido em análise.
+### Quem treina o quê
+
+| Base | Quem pode treinar |
+|---|---|
+| a que a pessoa enviou | ela mesma, e a equipe |
+| a de fábrica e as das outras pessoas | só a equipe |
+
+A verificação é no servidor, em `pode_treinar()`: a tela só esconde o que não dá para
+fazer, mas é a API que recusa.
+
+## Avisos para a equipe
+
+Como importar e treinar deixaram de passar por aprovação, a equipe precisa de um lugar
+para acompanhar o que foi feito. É a seção **Avisos** no painel, visível de equipe para
+cima, com um contador de não lidos no menu.
+
+Dois eventos geram aviso, e só quando quem fez **não** é da equipe: importar uma base e
+treinar um modelo. O aviso é coletivo — qualquer pessoa da equipe lê e marca como lido
+para todas —, porque o que importa é alguém ter visto, não cada um ter visto.
 
 ### O que a plataforma confere no arquivo
 
@@ -234,9 +249,8 @@ Falhando qualquer uma, o arquivo é **apagado** e a mensagem diz exatamente o qu
 encontrado. Passando, a resposta já lista quais antibióticos daquela base têm isolados
 suficientes para treinar.
 
-Enviar **não treina**: a base entra para consulta, mas os modelos dela começam vazios.
-Com a base já aprovada, vá em *Antibióticos*, escolha-a na lista e treine um antibiótico
-de cada vez.
+Importar **não treina**: a base entra valendo, mas os modelos dela começam vazios. Vá
+em *Antibióticos*, escolha-a na lista e treine um antibiótico de cada vez.
 
 ## Hospedar para teste
 
@@ -307,7 +321,7 @@ GET    /api/eu                                  quem está logado
 
 GET    /api/termo-base                          o termo e os limites do envio
 GET    /api/bases                               as bases que esta pessoa enxerga
-POST   /api/bases                               envia uma base (pesquisador: vira pedido)
+POST   /api/bases                               envia uma base (entra valendo na hora)
 GET    /api/bases/{id}/arquivo                  baixa o CSV (dono ou equipe)
 DELETE /api/bases/{id}                          remove a base (dono ou admin)
 GET    /api/base/resumo                         números do painel
@@ -318,12 +332,13 @@ GET    /api/base/isolados                       busca nos isolados
 POST   /api/prever                              a previsão
 POST   /api/eu/senha                            troca a própria senha
 
+GET    /api/notificacoes                        equipe — avisos não lidos
+POST   /api/notificacoes/lidas                  equipe — marca tudo como lido
 GET    /api/equipe/solicitacoes                 equipe
 POST   /api/equipe/solicitacoes/{id}/decidir    equipe
-GET    /api/antibioticos/disponiveis            equipe
-POST   /api/antibioticos/treinar                equipe
-POST   /api/antibioticos/{id}/padrao            equipe — qual modelo responde
-POST   /api/bases/{id}/decidir                  equipe — aprova ou recusa um pedido
+GET    /api/antibioticos/disponiveis            dono da base ou equipe
+POST   /api/antibioticos/treinar                dono da base ou equipe
+POST   /api/antibioticos/{id}/padrao            dono da base ou equipe
 
 GET    /api/admin/usuarios                      admin
 POST   /api/admin/usuarios                      admin — cria acesso compartilhável
@@ -373,9 +388,9 @@ abertas daquela pessoa.
 
 Com o envio de base pelo pesquisador, a plataforma passou a guardar **dado de
 terceiro**, não só o cadastro de quem usa. Por isso o termo de responsabilidade é
-obrigatório e fica registrado com a versão do texto aceito, o pedido passa por aprovação
-antes de a base ficar visível para os outros, recusar apaga o arquivo na hora e quem
-enviou pode remover a própria base a qualquer momento. É o mínimo; não substitui a
+obrigatório e fica registrado com a versão do texto aceito, cada importação e cada
+treino geram um aviso para a equipe, e quem enviou pode remover a própria base a
+qualquer momento. É o mínimo; não substitui a
 definição de base legal e prazo de retenção, que continua pendente.
 
 **O que ainda falta resolver no documento de processo:** com cadastro e login, a
