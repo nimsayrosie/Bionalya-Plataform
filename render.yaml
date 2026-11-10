@@ -8,10 +8,14 @@
 #   · 750 horas de instância por mês (uma instância ligada o mês inteiro cabe)
 #   · dorme depois de 15 minutos sem acesso; a primeira visita depois disso
 #     leva cerca de 1 minuto para acordar
-#   · o disco é descartável: a cada reinício o bionalya.db volta do zero
+#   · o disco é descartável: a cada reinício o que está nele volta do zero
 #
-# É por causa da última linha que as contas abaixo vêm de variável de ambiente.
-# Sem elas, a cada reinício a senha do admin mudaria e ninguém mais entraria.
+# Por causa do disco, os dados ficam num PostgreSQL fora do Render, no Neon
+# (neon.com), que é grátis e não tem prazo. O Postgres grátis do próprio Render
+# NÃO serve: ele é apagado 30 dias depois de criado se ninguém pagar.
+# Usuários, sessões, bases, modelos treinados, notificações — e até os CSVs
+# enviados e os .joblib — vão para o Neon; na partida, a API recria no disco o
+# que estiver faltando. Passo a passo em docs/banco-e-hospedagem.md.
 
 services:
   - type: web
@@ -24,6 +28,12 @@ services:
     healthCheckPath: /saude
     autoDeploy: true
     envVars:
+      # Onde fica o banco: o endereço de conexão do Neon. sync: false faz o
+      # Render pedir o valor na hora de criar o serviço (ele não fica escrito
+      # aqui porque tem a senha do banco dentro).
+      - key: DATABASE_URL
+        sync: false
+
       # Conta de admin. O e-mail você escolhe; a senha o Render sorteia na
       # primeira vez (generateValue) e guarda — dá para ler no painel, em
       # Environment, depois do primeiro deploy.
