@@ -8,7 +8,23 @@ PROJETO = RAIZ.parent                              # raiz do repositório
 
 PASTA_MODELOS = RAIZ / "modelos"                   # modelos/<base>/<antibiotico>.joblib
 PASTA_WEB = RAIZ / "web"                           # html, css, js
-BANCO = RAIZ / "bionalya.db"
+BANCO = RAIZ / "bionalya.db"                       # só quando não há DATABASE_URL
+
+
+def url_banco() -> str:
+    """Onde está o banco. DATABASE_URL ganha; sem ela, o SQLite local.
+
+    O Render (e quase toda hospedagem) entrega a URL como postgres://... ou
+    postgresql://..., que o SQLAlchemy entenderia como o driver antigo,
+    psycopg2. Aqui ela é reescrita para o psycopg 3, que é o instalado.
+    """
+    url = os.getenv("DATABASE_URL", "").strip()
+    if not url:
+        return f"sqlite:///{BANCO}"
+    for prefixo in ("postgres://", "postgresql://"):
+        if url.startswith(prefixo):
+            return "postgresql+psycopg://" + url[len(prefixo):]
+    return url
 
 PASTA_DADOS = PROJETO / "dados"                    # bases CSV
 PASTA_ENVIADAS = PASTA_DADOS / "enviadas"          # as que alguém subiu pela plataforma

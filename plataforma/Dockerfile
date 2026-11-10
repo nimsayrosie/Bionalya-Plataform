@@ -40,4 +40,7 @@ ENV PORT=8000
 EXPOSE 8000
 
 # Sem --reload: em produção ele só gasta memória vigiando arquivo.
-CMD ["sh", "-c", "python -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# exec: o uvicorn toma o lugar do sh. Sem isso o sh fica no meio, não repassa
+# o aviso de parada (SIGTERM) que a hospedagem manda, e ela acaba matando o
+# processo à força depois de esperar.
+CMD ["sh", "-c", "exec python -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

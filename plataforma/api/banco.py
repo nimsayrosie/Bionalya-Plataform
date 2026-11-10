@@ -1,4 +1,8 @@
-"""Banco da Bionalya — SQLite, via SQLAlchemy.
+"""Banco da Bionalya, via SQLAlchemy.
+
+Na hospedagem é PostgreSQL (variável DATABASE_URL), porque o disco do plano
+grátis é descartável e o SQLite sumiria a cada reinício. Na sua máquina, sem
+a variável, continua sendo o arquivo bionalya.db.
 
 Três tabelas:
   usuarios      quem pediu acesso, com status e papel
@@ -15,7 +19,8 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import (Boolean, DateTime, ForeignKey, Integer, String, Text,
+from sqlalchemy import (Boolean, DateTime, ForeignKey, Integer, LargeBinary,
+                        String, Text,
                         create_engine, select)
 from sqlalchemy.orm import (DeclarativeBase, Mapped, Session, mapped_column,
                             relationship, sessionmaker)
@@ -60,8 +65,8 @@ class Usuario(Base):
     papel: Mapped[str] = mapped_column(String(16), default="pesquisador")
     status: Mapped[str] = mapped_column(String(16), default="em_analise")
 
-    criado_em: Mapped[datetime] = mapped_column(DateTime, default=agora)
-    decidido_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     decidido_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
     motivo_recusa: Mapped[str | None] = mapped_column(Text, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -90,8 +95,8 @@ class Sessao(Base):
 
     token: Mapped[str] = mapped_column(String(64), primary_key=True)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
-    criado_em: Mapped[datetime] = mapped_column(DateTime, default=agora)
-    expira_em: Mapped[datetime] = mapped_column(DateTime)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     usuario: Mapped[Usuario] = relationship(back_populates="sessoes")
 
@@ -127,7 +132,7 @@ class BaseDados(Base):
     origem: Mapped[str] = mapped_column(String(20), default="upload")  # inicial | upload
     n_isolados: Mapped[int] = mapped_column(Integer, default=0)
     n_com_ast: Mapped[int] = mapped_column(Integer, default=0)
-    enviada_em: Mapped[datetime] = mapped_column(DateTime, default=agora)
+    enviada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
     enviada_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -136,7 +141,7 @@ class BaseDados(Base):
     # promove, e porque uma eventual volta da moderação não precisaria de
     # migração de esquema.
     situacao: Mapped[str] = mapped_column(String(16), default="aprovada")
-    decidida_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    decidida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     decidida_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
     motivo_recusa: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -175,7 +180,7 @@ class Antibiotico(Base):
     # Qual dos quatro algoritmos responde por padrão. Vazio = o recomendado
     # pelo treino (o de melhor AUC).
     modelo_padrao: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    criado_em: Mapped[datetime] = mapped_column(DateTime, default=agora)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
     criado_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
 
 
@@ -194,8 +199,8 @@ class Notificacao(Base):
     texto: Mapped[str] = mapped_column(Text, default="")
     link: Mapped[str | None] = mapped_column(String(200), nullable=True)
     autor: Mapped[str | None] = mapped_column(String(160), nullable=True)
-    criada_em: Mapped[datetime] = mapped_column(DateTime, default=agora)
-    lida_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+    lida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lida_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
 
     def publico(self) -> dict:
@@ -208,6 +213,23 @@ class Notificacao(Base):
         }
 
 
+class Arquivo(Base):
+    """Cópia de um arquivo do disco (CSV enviado, modelo treinado).
+
+    Existe para a hospedagem, onde o disco some a cada reinício e o banco não.
+    Quem cuida dela é o módulo arquivos.py.
+    """
+    __tablename__ = "arquivos"
+
+    # Relativo à raiz do repositório: "dados/enviadas/x.csv",
+    # "plataforma/modelos/<base>/<antibiotico>.joblib".
+    caminho: Mapped[str] = mapped_column(String(400), primary_key=True)
+    # deferred: listar os arquivos não traz os bytes junto.
+    conteudo: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    tamanho: Mapped[int] = mapped_column(Integer, default=0)
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
+
+
 def avisar(db: Session, tipo: str, titulo: str, texto: str = "",
            link: str | None = None, autor: str | None = None) -> Notificacao:
     """Registra um aviso para a equipe. Não falha a operação que o gerou."""
@@ -217,8 +239,18 @@ def avisar(db: Session, tipo: str, titulo: str, texto: str = "",
     return n
 
 
-motor = create_engine(f"sqlite:///{config.BANCO}", echo=False,
-                      connect_args={"check_same_thread": False})
+def _criar_motor():
+    url = config.url_banco()
+    if url.startswith("sqlite"):
+        return create_engine(url, echo=False,
+                             connect_args={"check_same_thread": False})
+    # pool_pre_ping: o Postgres do plano grátis derruba conexão parada, e sem
+    # isso a primeira consulta depois de um tempo quieto quebra.
+    return create_engine(url, echo=False, pool_pre_ping=True, pool_recycle=300)
+
+
+motor = _criar_motor()
+SQLITE = motor.dialect.name == "sqlite"
 Sessao_db = sessionmaker(bind=motor, expire_on_commit=False)
 
 
@@ -241,14 +273,17 @@ def migrar() -> list[str]:
     Só dá para ACRESCENTAR coluna, que é o que o SQLite permite. Remover ou mudar
     o tipo de uma pede migração de verdade — se um dia precisar, traga o Alembic.
     """
-    from sqlalchemy import text
+    from sqlalchemy import inspect, text
 
     acrescentadas: list[str] = []
     with motor.begin() as con:
+        # inspect em vez de PRAGMA table_info: funciona no SQLite e no Postgres.
+        inspetor = inspect(con)
         for tabela in Base.metadata.sorted_tables:
-            existentes = {linha[1] for linha in
-                          con.execute(text(f"PRAGMA table_info('{tabela.name}')"))}
-            if not existentes:                 # tabela nova: create_all já fez
+            if not inspetor.has_table(tabela.name):   # create_all já criou
+                continue
+            existentes = {c["name"] for c in inspetor.get_columns(tabela.name)}
+            if not existentes:
                 continue
             for coluna in tabela.columns:
                 if coluna.name in existentes:
