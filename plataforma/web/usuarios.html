@@ -258,7 +258,39 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
 
-    acoes.append(rot, sel, btn);
+    // Senha nova para quem esqueceu. Dois cliques: o primeiro pergunta.
+    var btnSenha = document.createElement("button");
+    btnSenha.type = "button";
+    btnSenha.className = "botao botao-mini botao-claro";
+    btnSenha.textContent = "Gerar senha nova";
+    btnSenha.disabled = u.id === eu.id || !u.ativo;
+    if (u.id === eu.id) btnSenha.title = "A sua senha você troca em Minha conta.";
+    var confirmando = false;
+    btnSenha.addEventListener("click", function () {
+      if (!confirmando) {
+        confirmando = true;
+        btnSenha.textContent = "Confirmar: a senha atual deixa de valer";
+        setTimeout(function () {
+          if (confirmando) { confirmando = false; btnSenha.textContent = "Gerar senha nova"; }
+        }, 6000);
+        return;
+      }
+      confirmando = false;
+      Bio.ocupado(btnSenha, true, "Gerando…");
+      Bio.api("/api/admin/usuarios/" + u.id + "/senha", { method: "POST", corpo: {} })
+        .then(function (r) {
+          mostrarCredencial(r, "Senha nova gerada para " + r.usuario.nome +
+            ". A antiga não vale mais e as sessões abertas foram encerradas.");
+          carregar();
+          Bio.contarAvisos();
+        }).catch(function (e) {
+          Bio.ocupado(btnSenha, false);
+          btnSenha.textContent = "Gerar senha nova";
+          Bio.aviso("#recado", e.message);
+        });
+    });
+
+    acoes.append(rot, sel, btn, btnSenha);
     div.appendChild(acoes);
     return div;
   }
@@ -291,14 +323,14 @@ document.addEventListener("DOMContentLoaded", function () {
   var btnCriar = document.getElementById("btn-criar");
   var painel = document.getElementById("credencial");
 
-  function mostrarCredencial(r) {
+  function mostrarCredencial(r, titulo) {
     painel.hidden = false;
     painel.innerHTML = "";
 
     var ok = document.createElement("div");
     ok.className = "recado recado-ok";
-    ok.textContent = "Acesso criado para " + r.usuario.nome + " (" +
-      PAPEL[r.usuario.papel].toLowerCase() + ").";
+    ok.textContent = titulo || ("Acesso criado para " + r.usuario.nome + " (" +
+      PAPEL[r.usuario.papel].toLowerCase() + ").");
     painel.appendChild(ok);
 
     var caixa = document.createElement("div");
@@ -343,6 +375,7 @@ document.addEventListener("DOMContentLoaded", function () {
     al.style.marginTop = "0.75rem";
     al.textContent = r.aviso;
     painel.appendChild(al);
+    painel.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   formConta.addEventListener("submit", function (ev) {
@@ -381,6 +414,10 @@ document.addEventListener("DOMContentLoaded", function () {
     espera = setTimeout(carregar, 300);
   });
   filtro.addEventListener("change", carregar);
+
+  // Vindo de um aviso de "esqueceu a senha", a lista já abre filtrada.
+  var buscaInicial = new URLSearchParams(location.search).get("busca");
+  if (buscaInicial) busca.value = buscaInicial;
 
   Bio.exigirLogin({ papel: "admin" }).then(function (u) {
     eu = u;
