@@ -16,15 +16,16 @@ from pathlib import Path
 from typing import Annotated
 
 import pandas as pd
-from fastapi import (Depends, FastAPI, File, Form, Header, HTTPException,
-                     UploadFile, status)
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import (BackgroundTasks, Depends, FastAPI, File, Form, Header,
+                     HTTPException, Request, UploadFile, status)
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from . import arquivos, banco, config, modelos, seguranca, treino
+from . import (arquivos, autenticacao, banco, config, correio, modelos,
+               seguranca, treino)
 
 # --------------------------------------------------------------------------- #
 # Partida
@@ -43,8 +44,14 @@ def iniciar() -> None:
         _semear_bases(db)
         _liberar_bases_em_analise(db)
         _semear_antibioticos(db)
-        _semear_equipe(db)
-        _semear_demo(db)
+        # Supabase fora do ar não pode impedir a API de subir: as contas são
+        # conferidas de novo na próxima partida.
+        for semear in (_semear_equipe, _semear_demo):
+            try:
+                semear(db)
+            except autenticacao.ErroAuth as e:
+                db.rollback()
+                print(f"\nAVISO: {semear.__name__}: {e.mensagem}\n")
 
 
 def _liberar_bases_em_analise(db: Session) -> None:
@@ -99,63 +106,93 @@ def _semear_antibioticos(db: Session) -> None:
     db.commit()
 
 
-def _semear_equipe(db: Session) -> None:
-    """Primeiro acesso: cria a conta de admin com senha aleatória e escreve as
-    credenciais num arquivo local, que o .gitignore não deixa subir."""
-    if db.execute(select(banco.Usuario)
-                  .where(banco.Usuario.papel == "admin")).scalars().first():
-        return
+def _garantir_conta(db: Session, *, email: str, senha: str | None, nome: str,
+                    papel: str, instituicao: str, vinculo: str,
+                    finalidade: str) -> tuple[banco.Usuario | None, str | None]:
+    """Garante a conta no Supabase e a linha em usuarios, já aprovada.
 
-    email = config.ADMIN_EMAIL
+    Devolve (usuario, senha_sorteada). A senha só é sorteada quando a conta
+    nasce agora no Supabase e nenhuma veio do ambiente. Conta que já existe no
+    Supabase não tem a senha mexida, a não ser que ela venha do ambiente e a
+    linha daqui seja nova (banco recriado): aí vale a do ambiente, que é a
+    que todo mundo conhece.
+    """
+    local = banco.usuario_por_email(db, email)
+    if local is not None and local.auth_id:
+        return local, None
+    if not autenticacao.admin_configurado():
+        print(f"\nAVISO: sem SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_KEY "
+              f"a conta {email} não pode ser criada. Veja .env.example.\n")
+        return None, None
 
-    # Banco de uma versão anterior, de quando só existiam dois papéis: promove
-    # a conta que já era da equipe em vez de criar outra. Criar duplicaria o
-    # e-mail, que é único, e a partida quebraria.
-    antiga = db.execute(
-        select(banco.Usuario)
-        .where((banco.Usuario.email == email) | (banco.Usuario.papel == "equipe"))
-        .order_by(banco.Usuario.criado_em)
-    ).scalars().first()
-    if antiga is not None:
-        antiga.papel = "admin"
-        antiga.status = "aprovado"
-        antiga.ativo = True
-        db.commit()
-        print(f"\nConta {antiga.email} promovida a admin (banco de versão anterior).\n"
-              "A senha continua a mesma.\n")
-        return
+    sorteada = None
+    metadados = {"nome": nome, "instituicao": instituicao}
+    try:
+        if not senha:
+            sorteada = senha = seguranca.senha_aleatoria()
+        auth_id = autenticacao.admin_criar(email, senha, metadados)
+    except autenticacao.ErroAuth as e:
+        if e.codigo not in ("email_exists", "user_already_exists") and e.status != 409:
+            print(f"\nAVISO: não foi possível criar {email} no Supabase: {e.mensagem}\n")
+            return None, None
+        sorteada = None
+        existente = autenticacao.admin_buscar_por_email(email)
+        if existente is None:
+            print(f"\nAVISO: {email} existe no Supabase mas não foi encontrada.\n")
+            return None, None
+        auth_id = existente["id"]
+        if not existente.get("email_confirmed_at"):
+            autenticacao.admin_confirmar_email(auth_id)
+        if senha and local is None and (
+                (email == config.ADMIN_EMAIL and config.ADMIN_SENHA)
+                or (email == config.DEMO_EMAIL and config.DEMO_SENHA)):
+            autenticacao.admin_trocar_senha(auth_id, senha)
 
-    # Na hospedagem a senha vem do ambiente, e precisa ser sempre a mesma: o
-    # disco é descartável, o banco volta do zero a cada reinício e uma senha
-    # sorteada deixaria todo mundo de fora. Na sua máquina, sorteia.
-    senha = config.ADMIN_SENHA or seguranca.senha_aleatoria()
-    db.add(banco.Usuario(
-        nome="Equipe Bionalya", email=email,
-        instituicao="Centro Universitário Dom Helder",
-        vinculo="pesquisador", finalidade="Administração da plataforma.",
-        senha_hash=seguranca.hash_senha(senha),
-        papel="admin", status="aprovado",
-        decidido_em=banco.agora(), decidido_por="sistema",
-    ))
+    if local is None:
+        local = banco.Usuario(email=email)
+        db.add(local)
+    local.auth_id = auth_id
+    local.nome = local.nome or nome
+    local.instituicao = local.instituicao or instituicao
+    local.vinculo = local.vinculo or vinculo
+    local.finalidade = local.finalidade or finalidade
+    local.papel = papel
+    local.status = "aprovado"
+    local.ativo = True
+    local.email_confirmado = True
+    local.decidido_em = local.decidido_em or banco.agora()
+    local.decidido_por = local.decidido_por or "sistema"
+    local.senha_trocada = sorteada is None
     db.commit()
+    return local, sorteada
 
+
+def _semear_equipe(db: Session) -> None:
+    """Garante a conta de admin (BIONALYA_ADMIN_EMAIL).
+
+    Sem BIONALYA_ADMIN_SENHA, a senha é sorteada na primeira vez e gravada em
+    PRIMEIRO-ACESSO.txt, que o .gitignore não deixa subir.
+    """
+    u, sorteada = _garantir_conta(
+        db, email=config.ADMIN_EMAIL, senha=config.ADMIN_SENHA,
+        nome="Equipe Bionalya", papel="admin",
+        instituicao="Centro Universitário Dom Helder", vinculo="pesquisador",
+        finalidade="Administração da plataforma.")
+    if u is None or not sorteada:
+        return
     aviso = (
         "PRIMEIRO ACESSO DA BIONALYA\n"
         "===========================\n\n"
-        f"E-mail: {email}\n"
-        f"Senha:  {senha}\n\n"
+        f"E-mail: {u.email}\n"
+        f"Senha:  {sorteada}\n\n"
         "Esta é a conta de ADMIN: aprova cadastros, treina modelos e\n"
         "gerencia os papéis das outras pessoas.\n"
         "A senha foi gerada aleatoriamente nesta máquina e não está no\n"
-        "repositório. Troque-a antes de usar a plataforma com outras pessoas,\n"
-        "e apague este arquivo depois de anotar.\n"
+        "repositório. Troque-a em Minha conta e apague este arquivo depois\n"
+        "de anotar.\n"
     )
-    if config.ADMIN_SENHA:
-        # Senha veio do ambiente: já é conhecida, não faz sentido gravar em arquivo.
-        print(f"\nAdmin criado a partir das variáveis de ambiente: {email}\n")
-    else:
-        (config.RAIZ / "PRIMEIRO-ACESSO.txt").write_text(aviso, encoding="utf-8")
-        print("\n" + aviso)
+    (config.RAIZ / "PRIMEIRO-ACESSO.txt").write_text(aviso, encoding="utf-8")
+    print("\n" + aviso)
 
 
 def _semear_demo(db: Session) -> None:
@@ -167,20 +204,14 @@ def _semear_demo(db: Session) -> None:
     """
     if not (config.DEMO_EMAIL and config.DEMO_SENHA):
         return
-    if db.execute(select(banco.Usuario)
-                  .where(banco.Usuario.email == config.DEMO_EMAIL.lower())
-                  ).scalars().first():
-        return
-    db.add(banco.Usuario(
-        nome=config.DEMO_NOME, email=config.DEMO_EMAIL.lower(),
-        instituicao="—", vinculo="estudante",
-        finalidade="Conta aberta para demonstração da plataforma.",
-        senha_hash=seguranca.hash_senha(config.DEMO_SENHA),
-        papel="pesquisador", status="aprovado",
-        decidido_em=banco.agora(), decidido_por="sistema",
-    ))
-    db.commit()
-    print(f"Conta de demonstração disponível: {config.DEMO_EMAIL}")
+    u, _ = _garantir_conta(
+        db, email=config.DEMO_EMAIL, senha=config.DEMO_SENHA, nome=config.DEMO_NOME,
+        papel="pesquisador", instituicao="—", vinculo="estudante",
+        finalidade="Conta aberta para demonstração da plataforma.")
+    if u is not None:
+        u.senha_trocada = True        # a senha é a do ambiente, de propósito
+        db.commit()
+        print(f"Conta de demonstração disponível: {config.DEMO_EMAIL}")
 
 
 @asynccontextmanager
@@ -199,6 +230,13 @@ app = FastAPI(
     version="0.1.0",
     lifespan=ciclo_de_vida,
 )
+
+
+@app.exception_handler(autenticacao.ErroAuth)
+def _erro_auth(_: Request, e: autenticacao.ErroAuth):
+    """Erro do Supabase vira a mesma resposta de erro das outras rotas."""
+    return JSONResponse({"detail": e.mensagem, "codigo": e.codigo},
+                        status_code=e.status)
 
 # Cada CSV é lido uma vez e fica em memória. A base padrão tem 32 MB; reler a
 # cada requisição deixaria a busca inutilizável.
@@ -303,11 +341,65 @@ def _token(authorization: str | None) -> str | None:
     return partes[1] if len(partes) == 2 and partes[0].lower() == "bearer" else None
 
 
-def usuario_atual(db: Db,
-                  authorization: Annotated[str | None, Header()] = None
-                  ) -> banco.Usuario:
+def _ligar_conta(db: Session, auth_id: str, email: str,
+                 metadados: dict | None = None, criar: bool = False
+                 ) -> banco.Usuario | None:
+    """A linha de usuarios dona daquela conta do Supabase.
+
+    Procura pelo auth_id; se não achar, pelo e-mail (conta criada antes de a
+    ligação existir) e grava o auth_id. Com criar=True, quem tem conta no
+    Supabase e nenhuma linha aqui ganha uma, em análise — a equipe decide.
+    """
+    u = banco.usuario_por_auth(db, auth_id)
+    if u is not None:
+        return u
+    u = banco.usuario_por_email(db, email) if email else None
+    if u is not None:
+        if u.auth_id and u.auth_id != auth_id:
+            return None                    # o e-mail é de outra conta
+        u.auth_id = auth_id
+        db.commit()
+        return u
+    if not criar or not email:
+        return None
+    m = metadados or {}
+    vinculo = m.get("vinculo") if m.get("vinculo") in banco.VINCULOS else "pesquisador"
+    u = banco.Usuario(
+        nome=(m.get("nome") or email.split("@")[0])[:160], email=email,
+        instituicao=(m.get("instituicao") or "—")[:160], vinculo=vinculo,
+        finalidade=m.get("finalidade") or "", auth_id=auth_id,
+        papel="pesquisador", status="em_analise", senha_trocada=True,
+    )
+    db.add(u)
+    db.commit()
+    return u
+
+
+def _barrar(u: banco.Usuario) -> None:
+    """Quem tem senha certa mas não pode entrar ainda (ou não pode mais)."""
+    if u.status == "em_analise":
+        raise HTTPException(403, "Sua solicitação ainda está em análise.")
+    if u.status == "recusado":
+        raise HTTPException(403, "Sua solicitação de acesso foi recusada.")
+    if not u.ativo:
+        raise HTTPException(403, "Esta conta foi desativada.")
+
+
+TROCAR_SENHA = ("Troque a senha que recebeu por uma sua antes de continuar.")
+
+
+def usuario_logado(db: Db,
+                   authorization: Annotated[str | None, Header()] = None
+                   ) -> banco.Usuario:
+    """Dono do token, conferido a cada requisição.
+
+    O token do Supabase vale por uma hora e não dá para revogar antes. Quem
+    garante que desativar ou recusar alguém corta o acesso na hora é esta
+    conferência do status, que acontece em toda rota protegida.
+    """
     tok = _token(authorization)
-    u = banco.buscar_por_token(db, tok) if tok else None
+    ident = autenticacao.conferir(tok) if tok else None
+    u = _ligar_conta(db, ident.auth_id, ident.email) if ident else None
     if u is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED,
                             "Sessão inválida ou expirada. Entre de novo.")
@@ -317,6 +409,21 @@ def usuario_atual(db: Db,
     if not u.ativo:
         raise HTTPException(status.HTTP_403_FORBIDDEN,
                             "Esta conta foi desativada.")
+    return u
+
+
+def usuario_atual(u: Annotated[banco.Usuario, Depends(usuario_logado)]
+                  ) -> banco.Usuario:
+    """O mesmo, e com a senha já trocada.
+
+    Senha que outra pessoa definiu (o admin gerou, criou a conta com ela, ou
+    foi sorteada na partida) precisa ser trocada antes de qualquer coisa. As
+    telas abrem um pop-up para isso (app.js); aqui é a garantia de que não dá
+    para pular o pop-up chamando a API direto. Só /api/eu e /api/eu/senha
+    ficam abertas, porque são elas que o pop-up usa.
+    """
+    if not u.senha_trocada:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, TROCAR_SENHA)
     return u
 
 
@@ -337,6 +444,8 @@ def usuario_admin(u: Annotated[banco.Usuario, Depends(usuario_atual)]
 
 
 Logado = Annotated[banco.Usuario, Depends(usuario_atual)]
+# Entrou, mas talvez ainda com a senha que outra pessoa definiu.
+LogadoSemTroca = Annotated[banco.Usuario, Depends(usuario_logado)]
 Equipe = Annotated[banco.Usuario, Depends(usuario_equipe)]
 Admin = Annotated[banco.Usuario, Depends(usuario_admin)]
 
@@ -355,11 +464,30 @@ class CadastroEntrada(BaseModel):
     termos: bool
 
 
-class RecuperarEntrada(BaseModel):
+class EmailEntrada(BaseModel):
     # str e não EmailStr: e-mail mal digitado recebe a mesma resposta de
     # sempre, sem erro de validação que entregue alguma coisa.
     email: str = Field(max_length=160)
-    mensagem: str | None = Field(default=None, max_length=500)
+
+
+class RenovarEntrada(BaseModel):
+    refresh_token: str = Field(min_length=1, max_length=512)
+
+
+class LinkEntrada(BaseModel):
+    """O que vem no link do e-mail: ?token_hash=...&type=... (modelo da
+    Bionalya) ou #access_token=... (modelo padrão do Supabase)."""
+    token_hash: str | None = Field(default=None, max_length=512)
+    access_token: str | None = Field(default=None, max_length=4096)
+    tipo: str = "email"
+
+
+class RedefinirEntrada(BaseModel):
+    senha: str
+    # Um dos dois: o token_hash do link (modelo de e-mail da Bionalya) ou o
+    # access_token que o modelo padrão do Supabase põe depois do # na URL.
+    token_hash: str | None = Field(default=None, max_length=512)
+    access_token: str | None = Field(default=None, max_length=4096)
 
 
 class SessaoEntrada(BaseModel):
@@ -423,8 +551,22 @@ class TreinoEntrada(BaseModel):
 # Acesso
 # --------------------------------------------------------------------------- #
 
+def _resposta_sessao(sessao: autenticacao.Sessao, u: banco.Usuario) -> dict:
+    return {"token": sessao.access_token, "refresh_token": sessao.refresh_token,
+            "expira_em": datetime.fromtimestamp(sessao.expira_em, timezone.utc)
+                                 .isoformat(),
+            "usuario": u.publico()}
+
+
+def _link(tela: str) -> str:
+    return f"{config.SITE_URL}/{tela}"
+
+
 @app.post("/api/cadastro", status_code=201, tags=["acesso"])
 def cadastrar(entrada: CadastroEntrada, db: Db):
+    """Cria a conta no Supabase (que manda o e-mail de confirmação) e o pedido
+    de acesso aqui, em análise. Entrar exige as duas coisas: e-mail
+    confirmado e acesso liberado pela equipe."""
     if not entrada.termos:
         raise HTTPException(400, "É preciso aceitar os termos para solicitar acesso.")
     if entrada.vinculo not in banco.VINCULOS:
@@ -432,121 +574,241 @@ def cadastrar(entrada: CadastroEntrada, db: Db):
     if (erro := seguranca.criticar_senha(entrada.senha)):
         raise HTTPException(400, erro)
 
-    ja = db.execute(select(banco.Usuario)
-                    .where(banco.Usuario.email == entrada.email.lower())).scalars().first()
-    if ja:
+    email = entrada.email.lower()
+    if banco.usuario_por_email(db, email):
         raise HTTPException(409, "Já existe uma solicitação com esse e-mail.")
 
+    metadados = {"nome": entrada.nome.strip(), "instituicao": entrada.instituicao.strip(),
+                 "vinculo": entrada.vinculo, "finalidade": entrada.finalidade.strip()}
+    auth_id, confirmado = autenticacao.cadastrar(
+        email, entrada.senha, metadados, _link("confirmar-email.html"))
+
     db.add(banco.Usuario(
-        nome=entrada.nome.strip(), email=entrada.email.lower(),
-        instituicao=entrada.instituicao.strip(), vinculo=entrada.vinculo,
-        finalidade=entrada.finalidade.strip(),
-        senha_hash=seguranca.hash_senha(entrada.senha),
-        papel="pesquisador", status="em_analise",
+        nome=metadados["nome"], email=email, instituicao=metadados["instituicao"],
+        vinculo=entrada.vinculo, finalidade=metadados["finalidade"],
+        auth_id=auth_id, email_confirmado=confirmado,
+        papel="pesquisador", status="em_analise", senha_trocada=True,
     ))
     db.commit()
-    return {"status": "em_analise",
-            "mensagem": "Solicitação enviada. A equipe responde no e-mail cadastrado."}
+    mensagem = ("Solicitação enviada. A equipe responde no e-mail cadastrado."
+                if confirmado else
+                f"Solicitação enviada. Mandamos um link para {email}: abra para "
+                "confirmar o e-mail. A equipe responde nesse mesmo endereço.")
+    return {"status": "em_analise", "email_confirmado": confirmado,
+            "mensagem": mensagem}
 
 
 @app.post("/api/sessao", tags=["acesso"])
 def entrar(entrada: SessaoEntrada, db: Db):
-    u = db.execute(select(banco.Usuario)
-                   .where(banco.Usuario.email == entrada.email.lower())).scalars().first()
-    # Mesma resposta para e-mail inexistente e senha errada: não entregamos
-    # a quem está tentando a informação de que o e-mail existe.
-    if u is None or not seguranca.conferir_senha(entrada.senha, u.senha_hash):
-        raise HTTPException(401, "E-mail ou senha incorretos.")
-    if u.status == "em_analise":
-        raise HTTPException(403, "Sua solicitação ainda está em análise.")
-    if u.status == "recusado":
-        raise HTTPException(403, "Sua solicitação de acesso foi recusada.")
+    email = entrada.email.strip().lower()
+    try:
+        sessao = autenticacao.entrar(email, entrada.senha)
+    except autenticacao.ErroAuth as e:
+        if e.codigo == "email_not_confirmed":
+            raise HTTPException(403, e.mensagem) from e
+        if e.status in (400, 401):
+            # Mesma resposta para e-mail inexistente e senha errada.
+            raise HTTPException(401, "E-mail ou senha incorretos.") from e
+        raise
 
-    s = banco.Sessao.nova(u)
-    db.add(s)
-    db.commit()
-    return {"token": s.token, "expira_em": s.expira_em.isoformat(),
-            "usuario": u.publico()}
+    u = _ligar_conta(db, sessao.auth_id, sessao.email, sessao.metadados, criar=True)
+    if u is None:
+        autenticacao.sair(sessao.access_token)
+        raise HTTPException(409, "Este e-mail está ligado a outra conta. Fale com a equipe.")
+    if not u.email_confirmado:
+        u.email_confirmado = True             # o Supabase só deixa entrar confirmado
+        db.commit()
+    try:
+        _barrar(u)
+    except HTTPException:
+        autenticacao.sair(sessao.access_token)
+        raise
+    return _resposta_sessao(sessao, u)
+
+
+@app.post("/api/sessao/renovar", tags=["acesso"])
+def renovar_sessao(entrada: RenovarEntrada, db: Db):
+    """Troca o refresh_token por um token novo. O token vale uma hora; as
+    telas chamam isto sozinhas quando ele vence."""
+    try:
+        sessao = autenticacao.renovar(entrada.refresh_token)
+    except autenticacao.ErroAuth as e:
+        raise HTTPException(401, "Sessão expirada. Entre de novo.") from e
+    u = _ligar_conta(db, sessao.auth_id, sessao.email)
+    if u is None:
+        raise HTTPException(401, "Sessão expirada. Entre de novo.")
+    try:
+        _barrar(u)
+    except HTTPException:
+        autenticacao.sair(sessao.access_token)
+        raise
+    return _resposta_sessao(sessao, u)
 
 
 @app.delete("/api/sessao", status_code=204, tags=["acesso"])
-def sair(db: Db, authorization: Annotated[str | None, Header()] = None):
-    tok = _token(authorization)
-    if tok and (s := db.get(banco.Sessao, tok)):
-        db.delete(s)
-        db.commit()
+def sair(authorization: Annotated[str | None, Header()] = None):
+    if (tok := _token(authorization)):
+        autenticacao.sair(tok)
 
-
-# Recuperação de senha, sem e-mail. A pessoa pede pela tela esqueci-senha.html,
-# a equipe recebe um aviso e um admin gera uma senha nova na tela Usuários,
-# que ele passa para a pessoa. Sem serviço de e-mail, é o caminho que funciona
-# no plano grátis; quando o projeto tiver um, o pedido vira um link por e-mail.
 
 RESPOSTA_RECUPERAR = (
-    "Pedido registrado. Se o e-mail estiver cadastrado, a equipe vai gerar uma "
-    "senha nova e entrar em contato com você pelo e-mail do cadastro.")
+    "Se o e-mail estiver cadastrado, você vai receber em alguns minutos um link "
+    "para criar uma senha nova. Confira também a caixa de spam.")
 
 
 @app.post("/api/recuperar-senha", tags=["acesso"])
-def recuperar_senha(entrada: RecuperarEntrada, db: Db):
-    """Pede uma senha nova. Responde sempre igual, exista ou não a conta."""
+def recuperar_senha(entrada: EmailEntrada, db: Db):
+    """Manda o e-mail com o link de nova senha. Responde sempre igual, exista
+    ou não a conta, para não revelar quem está cadastrado."""
     email = entrada.email.strip().lower()
-    u = db.execute(select(banco.Usuario)
-                   .where(banco.Usuario.email == email)).scalars().first()
-    # Só vira aviso para conta que consegue entrar: em análise, recusada ou
-    # desativada não adianta senha nova.
-    if u is None or u.status != "aprovado" or not u.ativo:
+    u = banco.usuario_por_email(db, email)
+    if u is None or not u.ativo or u.status == "recusado" or not u.auth_id:
         return {"mensagem": RESPOSTA_RECUPERAR}
-
-    # Um pedido em aberto por pessoa basta. Clicar dez vezes não gera dez avisos.
-    ja_pediu = db.execute(
-        select(banco.Notificacao)
-        .where(banco.Notificacao.tipo == "senha",
-               banco.Notificacao.autor == email,
-               banco.Notificacao.lida_em.is_(None))
-    ).scalars().first()
-    if ja_pediu is None:
-        recado = (entrada.mensagem or "").strip()
-        banco.avisar(
-            db, "senha", f"{u.nome} esqueceu a senha",
-            f"{email} pediu uma senha nova."
-            + (f" Recado: “{recado}”" if recado else "")
-            + " Um admin gera a senha nova na tela Usuários.",
-            link=f"usuarios.html?busca={email}", autor=email)
+    try:
+        autenticacao.pedir_nova_senha(email, _link("redefinir-senha.html"))
+    except autenticacao.ErroAuth as e:
+        if e.codigo in ("over_email_send_rate_limit", "over_request_rate_limit"):
+            raise HTTPException(429, e.mensagem) from e
+        # E-mail não saiu (SMTP fora do ar, limite do dia): o pedido vira aviso
+        # para a equipe, e um admin gera a senha nova pela tela Usuários.
+        print(f"[recuperar-senha] e-mail não saiu para {email}: {e.mensagem}")
+        ja_pediu = db.execute(
+            select(banco.Notificacao)
+            .where(banco.Notificacao.tipo == "senha",
+                   banco.Notificacao.autor == email,
+                   banco.Notificacao.lida_em.is_(None))
+        ).scalars().first()
+        if ja_pediu is None:
+            banco.avisar(
+                db, "senha", f"{u.nome} esqueceu a senha",
+                f"{email} pediu uma senha nova e o e-mail com o link não saiu "
+                f"({e.mensagem}). Um admin gera a senha nova na tela Usuários.",
+                link=f"usuarios.html?busca={email}", autor=email)
     return {"mensagem": RESPOSTA_RECUPERAR}
 
 
+@app.post("/api/redefinir-senha", tags=["acesso"])
+def redefinir_senha(entrada: RedefinirEntrada, db: Db):
+    """Define a senha nova a partir do link do e-mail e já entra na conta."""
+    if (erro := seguranca.criticar_senha(entrada.senha)):
+        raise HTTPException(400, erro)
+    if entrada.token_hash:
+        sessao = autenticacao.verificar_link(entrada.token_hash, "recovery")
+        token, auth_id = sessao.access_token, sessao.auth_id
+    elif entrada.access_token:
+        ident = autenticacao.conferir(entrada.access_token)
+        if ident is None:
+            raise HTTPException(400, "O link expirou ou já foi usado. Peça outro.")
+        sessao, token, auth_id = None, entrada.access_token, ident.auth_id
+    else:
+        raise HTTPException(400, "Abra esta página pelo link que chegou no seu e-mail.")
+
+    autenticacao.trocar_senha(token, entrada.senha)
+    # As outras sessões caem: se alguém tinha a senha antiga, perde o acesso.
+    autenticacao.sair(token, "others")
+
+    u = banco.usuario_por_auth(db, auth_id)
+    if u is not None:
+        u.senha_trocada = True
+        u.email_confirmado = True             # chegou pelo link: o e-mail é dela
+        for n in db.execute(
+            select(banco.Notificacao)
+            .where(banco.Notificacao.tipo == "senha",
+                   banco.Notificacao.autor == u.email,
+                   banco.Notificacao.lida_em.is_(None))
+        ).scalars().all():
+            n.lida_em = banco.agora()
+            n.lida_por = "o próprio usuário, pelo link do e-mail"
+        db.commit()
+
+    pode_entrar = (u is not None and u.status == "aprovado" and u.ativo
+                   and sessao is not None)
+    if not pode_entrar:
+        autenticacao.sair(token)
+        return {"ok": True, "entrou": False,
+                "mensagem": "Senha nova definida. Entre com ela na tela de login."}
+    return {"ok": True, "entrou": True, "mensagem": "Senha nova definida.",
+            **_resposta_sessao(sessao, u)}
+
+
+@app.post("/api/confirmar-email", tags=["acesso"])
+def confirmar_email(entrada: LinkEntrada, db: Db):
+    """Confirma o e-mail a partir do link mandado no cadastro."""
+    if entrada.token_hash:
+        tipo = entrada.tipo if entrada.tipo in ("email", "signup") else "email"
+        sessao = autenticacao.verificar_link(entrada.token_hash, tipo)
+        ident = autenticacao.Identidade(sessao.auth_id, sessao.email, sessao.metadados)
+        token = sessao.access_token
+    elif entrada.access_token:
+        # O Supabase já confirmou antes de redirecionar; aqui só se registra.
+        sessao, token = None, entrada.access_token
+        ident = autenticacao.conferir(token)
+        if ident is None:
+            raise HTTPException(400, "O link expirou ou já foi usado.")
+    else:
+        raise HTTPException(400, "Abra esta página pelo link que chegou no seu e-mail.")
+
+    u = _ligar_conta(db, ident.auth_id, ident.email, ident.metadados, criar=True)
+    if u is not None and not u.email_confirmado:
+        u.email_confirmado = True
+        db.commit()
+    if u is None or u.status != "aprovado" or not u.ativo or sessao is None:
+        autenticacao.sair(token)
+        return {"confirmado": True, "entrou": False,
+                "status": u.status if u else "em_analise"}
+    return {"confirmado": True, "entrou": True, "status": u.status,
+            **_resposta_sessao(sessao, u)}
+
+
+@app.post("/api/reenviar-confirmacao", tags=["acesso"])
+def reenviar_confirmacao(entrada: EmailEntrada, db: Db):
+    """Manda de novo o link de confirmação. Responde sempre igual."""
+    email = entrada.email.strip().lower()
+    u = banco.usuario_por_email(db, email)
+    if u is not None and not u.email_confirmado:
+        try:
+            autenticacao.reenviar_confirmacao(email, _link("confirmar-email.html"))
+        except autenticacao.ErroAuth as e:
+            if e.status == 429 or "rate_limit" in (e.codigo or ""):
+                raise HTTPException(429, e.mensagem) from e
+            print(f"[reenviar-confirmacao] {email}: {e.mensagem}")
+    return {"mensagem": "Se houver um cadastro esperando confirmação nesse e-mail, "
+                        "o link chega em alguns minutos."}
+
+
 @app.get("/api/eu", tags=["acesso"])
-def eu(u: Logado):
+def eu(u: LogadoSemTroca):
     return u.publico()
 
 
-
 @app.post("/api/eu/senha", tags=["acesso"])
-def trocar_senha(entrada: SenhaEntrada, u: Logado, db: Db,
-                 authorization: Annotated[str | None, Header()] = None):
-    if not seguranca.conferir_senha(entrada.senha_atual, u.senha_hash):
-        raise HTTPException(400, "A senha atual está incorreta.")
+def trocar_senha(entrada: SenhaEntrada, u: LogadoSemTroca, db: Db):
+    """Troca a senha de quem está logado.
+
+    A senha atual é conferida entrando de novo no Supabase. A sessão que nasce
+    dessa conferência é recém-criada, então serve para trocar a senha mesmo
+    com a "troca segura de senha" do Supabase ligada. Depois, todas as outras
+    sessões caem, inclusive a desta aba: a resposta traz a sessão nova, e a
+    tela passa a usar ela.
+    """
     if (erro := seguranca.criticar_senha(entrada.senha_nova)):
         raise HTTPException(400, erro)
     if entrada.senha_atual == entrada.senha_nova:
         raise HTTPException(400, "A senha nova precisa ser diferente da atual.")
+    try:
+        sessao = autenticacao.entrar(u.email, entrada.senha_atual)
+    except autenticacao.ErroAuth as e:
+        if e.status in (400, 401):
+            raise HTTPException(400, "A senha atual está incorreta.") from e
+        raise
+    autenticacao.trocar_senha(sessao.access_token, entrada.senha_nova)
+    autenticacao.sair(sessao.access_token, "others")
 
-    u.senha_hash = seguranca.hash_senha(entrada.senha_nova)
     u.senha_trocada = True
-    # Trocar a senha derruba as outras sessões; a desta aba continua valendo,
-    # para a pessoa não ser deslogada no meio da própria troca.
-    atual = _token(authorization)
-    derrubadas = 0
-    for s in list(u.sessoes):
-        if s.token != atual:
-            db.delete(s)
-            derrubadas += 1
     db.commit()
-    return {"ok": True, "sessoes_encerradas": derrubadas,
-            "mensagem": "Senha trocada." + (
-                f" {derrubadas} outra(s) sessão(ões) foram encerradas."
-                if derrubadas else "")}
+    return {"ok": True, "mensagem": "Senha trocada. As outras sessões abertas com a "
+                                    "sua conta foram encerradas.",
+            **_resposta_sessao(sessao, u)}
 
 
 # --------------------------------------------------------------------------- #
@@ -602,10 +864,9 @@ def mudar_ativo(usuario_id: int, entrada: AtivoEntrada, adm: Admin, db: Db):
     if not entrada.ativo and u.papel == "admin" and _conta_admins(db) <= 1:
         raise HTTPException(400, "Este é o único admin ativo.")
 
+    # Desativar corta o acesso na hora: toda rota confere o status (ver
+    # usuario_atual), e a renovação da sessão também.
     u.ativo = entrada.ativo
-    if not entrada.ativo:                     # desativou: derruba as sessões
-        for s in list(u.sessoes):
-            db.delete(s)
     db.commit()
     return u.publico()
 
@@ -617,18 +878,22 @@ def gerar_senha_nova(usuario_id: int, adm: Admin, db: Db):
     A senha aparece uma vez só, na resposta. A conta volta ao estado de "senha
     inicial" (a tela Minha conta pede para trocar), as sessões abertas caem e
     os pedidos de senha dessa pessoa saem da lista de avisos.
+
+    É o plano B: o caminho normal é a pessoa pedir o link por e-mail em
+    esqueci-senha.html. Isto serve quando o e-mail não chega.
     """
     u = db.get(banco.Usuario, usuario_id)
     if u is None:
         raise HTTPException(404, "Usuário não encontrado.")
     if u.id == adm.id:
         raise HTTPException(400, "Para trocar a sua própria senha, use Minha conta.")
+    if not u.auth_id:
+        raise HTTPException(409, "Esta conta ainda não está ligada ao login. "
+                                 "Ela precisa entrar uma vez antes.")
 
     senha = seguranca.senha_aleatoria()
-    u.senha_hash = seguranca.hash_senha(senha)
+    autenticacao.admin_trocar_senha(u.auth_id, senha)
     u.senha_trocada = False
-    for s in list(u.sessoes):
-        db.delete(s)
     for n in db.execute(
         select(banco.Notificacao)
         .where(banco.Notificacao.tipo == "senha",
@@ -643,12 +908,12 @@ def gerar_senha_nova(usuario_id: int, adm: Admin, db: Db):
         "senha": senha,
         "aviso": "Esta senha aparece uma única vez. Copie agora e mande para a "
                  "pessoa por um canal que você confie. Quando ela entrar, a "
-                 "plataforma pede para trocar.",
+                 "plataforma pede para trocar na hora, antes de qualquer outra coisa.",
     }
 
 
 @app.post("/api/admin/usuarios", status_code=201, tags=["admin"])
-def criar_conta(entrada: ContaEntrada, adm: Admin, db: Db):
+def criar_conta(entrada: ContaEntrada, adm: Admin, db: Db, tarefas: BackgroundTasks):
     """Cria uma conta já aprovada, para compartilhar o acesso com alguém.
 
     É o caminho curto: a pessoa não precisa se cadastrar e esperar liberação.
@@ -658,8 +923,7 @@ def criar_conta(entrada: ContaEntrada, adm: Admin, db: Db):
         raise HTTPException(400, f"Papel inválido. Use um de: {', '.join(banco.PAPEIS)}.")
 
     email = entrada.email.strip().lower()
-    if db.execute(select(banco.Usuario)
-                  .where(banco.Usuario.email == email)).scalars().first():
+    if banco.usuario_por_email(db, email):
         raise HTTPException(409, "Já existe uma conta com esse e-mail.")
 
     gerada = not entrada.senha
@@ -668,26 +932,32 @@ def criar_conta(entrada: ContaEntrada, adm: Admin, db: Db):
     if problema:
         raise HTTPException(422, problema)
 
+    nome = entrada.nome.strip()
+    instituicao = (entrada.instituicao or "—").strip()
+    # Conta criada já confirmada: quem criou responde pelo e-mail.
+    auth_id = autenticacao.admin_criar(email, senha,
+                                       {"nome": nome, "instituicao": instituicao})
     u = banco.Usuario(
-        nome=entrada.nome.strip(), email=email,
-        instituicao=(entrada.instituicao or "—").strip(),
+        nome=nome, email=email, instituicao=instituicao,
         vinculo="pesquisador",
         finalidade=(entrada.observacao
                     or f"Acesso criado por {adm.email} para compartilhamento."),
-        senha_hash=seguranca.hash_senha(senha),
+        auth_id=auth_id, email_confirmado=True,
         papel=entrada.papel, status="aprovado",
         decidido_em=banco.agora(), decidido_por=adm.email,
-        senha_trocada=not gerada,
+        senha_trocada=False,           # quem criou sabe a senha: troca no 1º login
     )
     db.add(u)
     db.commit()
+    tarefas.add_task(correio.conta_criada, email, nome, adm.nome)
     return {
         "usuario": u.publico(),
         "senha": senha,
         "gerada": gerada,
         "aviso": "Esta senha aparece uma única vez. Copie agora e mande para a "
-                 "pessoa por um canal que você confie — o banco guarda só o hash, "
-                 "então nem você nem a equipe conseguem recuperá-la depois.",
+                 "pessoa por um canal que você confie: depois disso ninguém "
+                 "consegue lê-la de novo. No primeiro acesso, a plataforma pede "
+                 "para ela trocar por uma senha dela.",
     }
 
 
@@ -812,7 +1082,8 @@ def solicitacoes(_: Equipe, db: Db, situacao: str = "em_analise"):
 
 
 @app.post("/api/equipe/solicitacoes/{usuario_id}/decidir", tags=["equipe"])
-def decidir(usuario_id: int, entrada: DecisaoEntrada, equipe: Equipe, db: Db):
+def decidir(usuario_id: int, entrada: DecisaoEntrada, equipe: Equipe, db: Db,
+            tarefas: BackgroundTasks):
     u = db.get(banco.Usuario, usuario_id)
     if u is None:
         raise HTTPException(404, "Solicitação não encontrada.")
@@ -823,10 +1094,12 @@ def decidir(usuario_id: int, entrada: DecisaoEntrada, equipe: Equipe, db: Db):
     u.decidido_em = banco.agora()
     u.decidido_por = equipe.email
     u.motivo_recusa = None if entrada.aprovar else (entrada.motivo or None)
-    if not entrada.aprovar:                       # recusou: derruba as sessões
-        for s in list(u.sessoes):
-            db.delete(s)
     db.commit()
+    # A resposta não espera o e-mail sair: o envio roda depois, em segundo plano.
+    if entrada.aprovar:
+        tarefas.add_task(correio.acesso_liberado, u.email, u.nome)
+    else:
+        tarefas.add_task(correio.acesso_recusado, u.email, u.nome, u.motivo_recusa)
     return u.publico()
 
 
@@ -1332,8 +1605,19 @@ def raiz():
 
 
 @app.get("/saude", tags=["base"])
-def saude():
-    return {"ok": True, "modelos": len(modelos.listar_metadados()),
+def saude(db: Db):
+    """Confere a API e o banco. O ping semanal (.github/workflows) bate aqui,
+    e a consulta ao banco é o que conta como uso para o Supabase não pausar
+    o projeto."""
+    try:
+        db.execute(text("SELECT 1"))
+        banco_ok = True
+    except Exception:
+        banco_ok = False
+    return {"ok": banco_ok, "banco": banco_ok,
+            "login": autenticacao.configurado(),
+            "email": correio.configurado(),
+            "modelos": len(modelos.listar_metadados()),
             "base_disponivel": config.CAMINHO_BASE.exists(),
             "hora": datetime.now(timezone.utc).isoformat(timespec="seconds")}
 

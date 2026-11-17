@@ -6,6 +6,30 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent      # .../plataforma
 PROJETO = RAIZ.parent                              # raiz do repositório
 
+
+def _ler_env() -> None:
+    """Lê plataforma/.env (ou o da raiz) para os.environ, sem sobrescrever.
+
+    Na hospedagem as variáveis vêm do painel; isto é para a sua máquina, onde
+    copiar .env.example para .env e preencher basta. Formato CHAVE=valor, uma
+    por linha; # começa comentário.
+    """
+    for arquivo in (RAIZ / ".env", PROJETO / ".env"):
+        if not arquivo.exists():
+            continue
+        for linha in arquivo.read_text(encoding="utf-8").splitlines():
+            linha = linha.strip()
+            if not linha or linha.startswith("#") or "=" not in linha:
+                continue
+            chave, valor = linha.split("=", 1)
+            valor = valor.strip()
+            if len(valor) >= 2 and valor[0] == valor[-1] and valor[0] in "'\"":
+                valor = valor[1:-1]
+            os.environ.setdefault(chave.strip(), valor)
+
+
+_ler_env()
+
 PASTA_MODELOS = RAIZ / "modelos"                   # modelos/<base>/<antibiotico>.joblib
 PASTA_WEB = RAIZ / "web"                           # html, css, js
 BANCO = RAIZ / "bionalya.db"                       # só quando não há DATABASE_URL
@@ -95,20 +119,61 @@ def nome_pt(nome_base: str) -> str:
     return NOMES_PT.get(str(nome_base).lower(), str(nome_base).capitalize())
 
 
-# Sessão expira em 12 horas. Protótipo: sem refresh token.
-HORAS_SESSAO = 12
+# ---------------------------------------------------------------------------
+# Login: Supabase Auth.
+#
+# O Supabase guarda e-mail e senha, manda os e-mails de confirmação e de
+# recuperação de senha e entrega o token de sessão. O resto do cadastro (papel,
+# status, instituição) continua na tabela usuarios, no nosso banco.
+#
+#   SUPABASE_URL          https://<ref>.supabase.co
+#   SUPABASE_ANON_KEY     chave pública (anon / publishable)
+#   SUPABASE_SERVICE_KEY  chave secreta (service_role / secret). Só no servidor:
+#                         cria as contas de admin, de demonstração e as que o
+#                         admin cria pela tela, e troca senha pelo admin.
+#   SUPABASE_JWT_SECRET   opcional. Só para projeto antigo, com JWT assinado por
+#                         segredo (HS256). Projeto novo usa chave assimétrica, e
+#                         a API confere o token pela chave pública do projeto.
+# ---------------------------------------------------------------------------
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "").strip()
+SUPABASE_SERVICE_KEY = (os.getenv("SUPABASE_SERVICE_KEY")
+                        or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "").strip()
+
+# Endereço público do site. Entra nos links dos e-mails (confirmar cadastro,
+# redefinir senha). Na sua máquina, o próprio uvicorn.
+SITE_URL = (os.getenv("SITE_URL") or "http://127.0.0.1:8000").strip().rstrip("/")
+
+# ---------------------------------------------------------------------------
+# E-mail que a própria plataforma manda (acesso liberado ou recusado).
+#
+# Os e-mails de login (confirmação, nova senha) quem manda é o Supabase, pelo
+# SMTP configurado no painel dele. Estes aqui saem direto da API, pelo mesmo
+# SMTP. Sem SMTP_HOST, a plataforma funciona igual e só não manda o aviso.
+#
+# Com Gmail: smtp.gmail.com, porta 587, o endereço completo como usuário e uma
+# "senha de app" (não a senha da conta). Passo a passo em
+# docs/banco-e-hospedagem.md.
+# ---------------------------------------------------------------------------
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORTA = int(os.getenv("SMTP_PORTA") or os.getenv("SMTP_PORT") or 587)
+SMTP_USUARIO = os.getenv("SMTP_USUARIO") or os.getenv("SMTP_USER") or ""
+SMTP_SENHA = (os.getenv("SMTP_SENHA") or os.getenv("SMTP_PASS") or "").replace(" ", "")
+SMTP_REMETENTE = os.getenv("SMTP_REMETENTE") or SMTP_USUARIO
+SMTP_NOME = os.getenv("SMTP_NOME") or "Bionalya"
 
 # ---------------------------------------------------------------------------
 # Contas semeadas por variável de ambiente.
 #
-# Na sua máquina, deixe em branco: a API gera uma senha aleatória e grava em
-# PRIMEIRO-ACESSO.txt. Numa hospedagem grátis o disco some a cada reinício, e
-# o banco vai junto — lá vale definir estas variáveis no painel do serviço,
-# para o admin e o convidado existirem sempre com a mesma senha.
+# O admin existe sempre. Sem BIONALYA_ADMIN_SENHA, a API sorteia uma senha na
+# primeira vez e grava em PRIMEIRO-ACESSO.txt (que não é versionado). Se a conta
+# já existir no Supabase, a senha dela não é mexida, a não ser que a variável
+# esteja definida.
 # ---------------------------------------------------------------------------
-ADMIN_EMAIL = os.getenv("BIONALYA_ADMIN_EMAIL", "equipe@bionalya.app")
+ADMIN_EMAIL = (os.getenv("BIONALYA_ADMIN_EMAIL") or "equipe@bionalya.app").strip().lower()
 ADMIN_SENHA = os.getenv("BIONALYA_ADMIN_SENHA") or None
 
-DEMO_EMAIL = os.getenv("BIONALYA_DEMO_EMAIL") or None
+DEMO_EMAIL = (os.getenv("BIONALYA_DEMO_EMAIL") or "").strip().lower() or None
 DEMO_SENHA = os.getenv("BIONALYA_DEMO_SENHA") or None
-DEMO_NOME = os.getenv("BIONALYA_DEMO_NOME", "Acesso de demonstração")
+DEMO_NOME = os.getenv("BIONALYA_DEMO_NOME") or "Acesso de demonstração"

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Bionalya — Nova senha</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<div class="barra-acesso">
+  <a href="login.html">← Voltar para o login</a>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</div>
+
+<main class="acesso">
+
+  <div class="acesso-marca">
+    <a href="inicio.html"><img src="assets/bionalya-logo.svg" alt=""></a>
+    <strong>Bionalya</strong>
+    <span>Previsão de resistência bacteriana para apoio à pesquisa</span>
+  </div>
+
+  <div class="cartao">
+    <h1 style="font-size:1.75rem">Criar senha nova</h1>
+    <p style="margin-top:0.5rem; color:var(--roxo-suave); font-size:var(--t-sm);">
+      Escolha a senha que você vai usar para entrar daqui em diante.
+    </p>
+
+    <div class="recado" id="recado" hidden role="status"></div>
+
+    <form id="form-redefinir" style="margin-top:2rem" novalidate>
+
+      <div class="campo">
+        <label for="senha">Senha nova</label>
+        <input type="password" id="senha" name="senha" autocomplete="new-password"
+               minlength="8" maxlength="72" required aria-describedby="ajuda-senha">
+        <span class="ajuda" id="ajuda-senha">Pelo menos 8 caracteres.</span>
+      </div>
+
+      <div class="campo">
+        <label for="confirma">Repita a senha nova</label>
+        <input type="password" id="confirma" name="confirma" autocomplete="new-password"
+               minlength="8" maxlength="72" required>
+      </div>
+
+      <button class="botao" type="submit" style="width:100%">Salvar senha nova</button>
+    </form>
+
+    <p class="alternativa" id="pedir-outro" hidden>
+      <a class="botao botao-claro" href="esqueci-senha.html">Pedir outro link</a>
+    </p>
+  </div>
+
+  <div class="aviso">
+    <span class="etiqueta etiqueta-neutra" aria-hidden="true">Segurança</span>
+    <div>
+      <strong>Salvar a senha nova encerra as outras sessões</strong>
+      <p>Se alguém estava usando a sua senha antiga em outro aparelho, perde o acesso
+         na hora. O link do e-mail funciona uma vez só.</p>
+    </div>
+  </div>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var f = document.getElementById("form-redefinir");
+  var btn = f.querySelector("button[type=submit]");
+  var pedirOutro = document.getElementById("pedir-outro");
+
+  /* O link chega de dois jeitos:
+     - modelo de e-mail da Bionalya: ?token_hash=...&type=recovery
+       (o token só é gasto quando a pessoa salva, não quando o link abre —
+       antivírus de e-mail que abre todo link para conferir não estraga nada)
+     - modelo padrão do Supabase: #access_token=...&type=recovery, ou
+       #error=...&error_description=... quando o link já não vale. */
+  var busca = new URLSearchParams(location.search);
+  var frag = new URLSearchParams(location.hash.replace(/^#/, ""));
+  var tokenHash = busca.get("token_hash");
+  var accessToken = frag.get("access_token");
+  // Tira o token da barra de endereço: não fica no histórico nem vaza num print.
+  if (tokenHash || accessToken || frag.get("error")) {
+    history.replaceState(null, "", location.pathname);
+  }
+
+  function linkInvalido(texto) {
+    f.hidden = true;
+    pedirOutro.hidden = false;
+    Bio.aviso("#recado", texto || "Este link expirou ou já foi usado. Peça outro.");
+  }
+
+  if (frag.get("error")) return linkInvalido();
+  if (!tokenHash && !accessToken) {
+    return linkInvalido("Abra esta página pelo link que chegou no seu e-mail.");
+  }
+
+  f.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    Bio.aviso("#recado", null);
+    var senha = f.senha.value;
+    if (senha.length < 8) {
+      f.senha.focus();
+      return Bio.aviso("#recado", "A senha precisa de pelo menos 8 caracteres.");
+    }
+    if (senha !== f.confirma.value) {
+      f.confirma.focus();
+      return Bio.aviso("#recado", "As duas senhas não são iguais.");
+    }
+    Bio.ocupado(btn, true, "Salvando…");
+    Bio.api("/api/redefinir-senha", { method: "POST", corpo: {
+      senha: senha, token_hash: tokenHash, access_token: accessToken
+    }}).then(function (r) {
+      if (r.entrou) {
+        Bio.entrarComSessao(r);
+        location.href = "index.html";
+      } else {
+        location.href = "login.html?senha=1";
+      }
+    }).catch(function (e) {
+      Bio.ocupado(btn, false);
+      if (/expirou|j. foi usado|pelo link/i.test(e.message)) return linkInvalido(e.message);
+      Bio.aviso("#recado", e.message);
+    });
+  });
+});
+</script>
+
+</body>
+</html>

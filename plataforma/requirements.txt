@@ -9,7 +9,10 @@ fastapi==0.162.0
 uvicorn[standard]==0.52.4
 sqlalchemy==2.1.6
 pydantic[email]==2.13.5
-passlib==1.7.4
+# Fala com o Supabase Auth (cadastro, login, nova senha) e confere o token
+# de sessão pela chave pública do projeto.
+httpx==0.28.1
+PyJWT[crypto]==2.10.1
 # Lê o upload de base (multipart/form-data) em POST /api/bases. O FastAPI não
 # traz junto: sem ela a API nem sobe, quebra na hora de registrar a rota.
 python-multipart==0.0.32

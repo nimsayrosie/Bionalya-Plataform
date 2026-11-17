@@ -158,8 +158,9 @@ document.addEventListener("DOMContentLoaded", function () {
       instituicao: f.instituicao.value.trim(), vinculo: vinculo.value,
       finalidade: f.finalidade.value.trim(), senha: f.senha.value,
       termos: true
-    }}).then(function () {
-      location.href = "acesso-pendente.html";
+    }}).then(function (r) {
+      location.href = "acesso-pendente.html" + (r && r.email_confirmado ? "" :
+        "?confirmar=" + encodeURIComponent(f.email.value.trim()));
     }).catch(function (e) {
       Bio.ocupado(btn, false);
       Bio.aviso("#recado", e.message);

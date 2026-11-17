@@ -156,7 +156,8 @@ document.addEventListener("DOMContentLoaded", function () {
     var meta = document.createElement("p");
     meta.className = "meta";
     meta.textContent = s.email + " · " + s.instituicao + " · " +
-      (VINCULOS[s.vinculo] || s.vinculo) + " · pedido em " + data(s.criado_em);
+      (VINCULOS[s.vinculo] || s.vinculo) + " · pedido em " + data(s.criado_em) +
+      (s.email_confirmado ? " · e-mail confirmado" : " · e-mail ainda não confirmado");
 
     var fin = document.createElement("p");
     fin.className = "finalidade";

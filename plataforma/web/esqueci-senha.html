@@ -33,8 +33,8 @@
   <div class="cartao">
     <h1 style="font-size:1.75rem">Recuperar senha</h1>
     <p style="margin-top:0.5rem; color:var(--roxo-suave); font-size:var(--t-sm);">
-      Digite o e-mail do seu cadastro. A equipe da Bionalya recebe o pedido, gera
-      uma senha nova e entra em contato com você.
+      Digite o e-mail do seu cadastro. Mandamos para ele um link para você criar
+      uma senha nova.
     </p>
 
     <div class="recado" id="recado" hidden role="status"></div>
@@ -49,15 +49,7 @@
         <span class="ajuda" id="ajuda-email">O mesmo que você usou no cadastro.</span>
       </div>
 
-      <div class="campo">
-        <label for="mensagem">Recado para a equipe <span class="ajuda">(opcional)</span></label>
-        <textarea id="mensagem" name="mensagem" rows="3" maxlength="500"
-                  aria-describedby="ajuda-mensagem"></textarea>
-        <span class="ajuda" id="ajuda-mensagem">Por exemplo, outro jeito de falar com você
-          se não tiver mais acesso a esse e-mail.</span>
-      </div>
-
-      <button class="botao" type="submit" style="width:100%">Pedir senha nova</button>
+      <button class="botao" type="submit" style="width:100%">Mandar o link</button>
     </form>
   </div>
 
@@ -68,10 +60,10 @@
   <div class="aviso">
     <span class="etiqueta etiqueta-neutra" aria-hidden="true">Como funciona</span>
     <div>
-      <strong>Sem link por e-mail, por enquanto</strong>
-      <p>A plataforma ainda não envia e-mails. A senha nova é gerada por alguém da
-         equipe e enviada para você. Ao entrar com ela, a plataforma pede para você
-         trocar por uma senha sua, em Minha conta.</p>
+      <strong>O link vale por uma hora e funciona uma vez</strong>
+      <p>Se o e-mail não chegar em alguns minutos, confira a caixa de spam. Se tiver
+         perdido o acesso a esse e-mail, fale com a equipe: um admin consegue gerar uma
+         senha nova para você.</p>
     </div>
   </div>
 
@@ -98,7 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     Bio.ocupado(btn, true, "Enviando…");
     Bio.api("/api/recuperar-senha", { method: "POST", corpo: {
-      email: email, mensagem: f.mensagem.value.trim() || null
+      email: email
     }}).then(function (r) {
       f.hidden = true;
       Bio.aviso("#recado", r.mensagem, "ok");

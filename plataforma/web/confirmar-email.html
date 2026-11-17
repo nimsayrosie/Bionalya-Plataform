@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Bionalya — Confirmar e-mail</title>
+<link rel="icon" href="assets/bionalya-logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="tema.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+
+<div class="barra-acesso">
+  <a href="inicio.html">← Sobre a plataforma</a>
+  <button class="tema" type="button" data-tema-botao aria-pressed="false">
+    <span class="tema-icone" aria-hidden="true"></span>
+    <span class="tema-texto">Modo escuro</span>
+  </button>
+</div>
+
+<main class="acesso">
+
+  <div class="acesso-marca">
+    <a href="inicio.html"><img src="assets/bionalya-logo.svg" alt=""></a>
+    <strong>Bionalya</strong>
+  </div>
+
+  <div class="cartao cartao-rosa estado-centro">
+    <span class="etiqueta etiqueta-neutra" id="etiqueta">Cadastro</span>
+    <h1 style="font-size:1.75rem;margin-top:0.5rem" id="titulo">Confirmar seu e-mail</h1>
+    <p style="margin-top:1rem" id="texto">
+      Falta um clique para confirmar que este e-mail é seu.
+    </p>
+
+    <div class="recado" id="recado" hidden role="status"></div>
+
+    <p style="margin-top:1.5rem" id="acao">
+      <button class="botao" type="button" id="btn-confirmar">Confirmar meu e-mail</button>
+    </p>
+  </div>
+
+  <p class="alternativa" style="margin-top:2rem">
+    <a class="botao botao-claro" href="login.html" id="voltar">Ir para a entrada</a>
+  </p>
+
+</main>
+
+<footer class="rodape">
+  <a href="inicio.html">Sobre a plataforma</a> ·
+  Bionalya · Projeto Interdisciplinar I · Centro Universitário Dom Helder
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var btn = document.getElementById("btn-confirmar");
+  var acao = document.getElementById("acao");
+
+  /* Modelo de e-mail da Bionalya: ?token_hash=...&type=email, e o token só é
+     gasto no clique — antivírus que abre todo link de e-mail não confirma no
+     lugar da pessoa nem estraga o link. Modelo padrão do Supabase: ele já
+     confirmou antes de redirecionar e manda #access_token=... (ou #error=...). */
+  var busca = new URLSearchParams(location.search);
+  var frag = new URLSearchParams(location.hash.replace(/^#/, ""));
+  var tokenHash = busca.get("token_hash");
+  var tipo = busca.get("type") || "email";
+  var accessToken = frag.get("access_token");
+  if (tokenHash || accessToken || frag.get("error")) {
+    history.replaceState(null, "", location.pathname);
+  }
+
+  function pronto(r) {
+    acao.hidden = true;
+    if (r.entrou) {
+      Bio.entrarComSessao(r);
+      location.href = "index.html";
+      return;
+    }
+    document.getElementById("etiqueta").textContent = "E-mail confirmado";
+    document.getElementById("titulo").textContent = "Pronto, e-mail confirmado";
+    document.getElementById("texto").textContent = r.status === "recusado"
+      ? "Seu pedido de acesso já foi analisado e não foi liberado. Os detalhes estão no e-mail que a equipe mandou."
+      : "Agora a equipe confere seu vínculo e a finalidade. Quando o acesso for liberado, você recebe um e-mail neste mesmo endereço.";
+  }
+
+  function falhou(texto) {
+    acao.hidden = true;
+    document.getElementById("etiqueta").textContent = "Link inválido";
+    document.getElementById("titulo").textContent = "Não deu para confirmar";
+    document.getElementById("texto").textContent =
+      "O link expirou ou já foi usado. Se você já confirmou, é só entrar. Se não, " +
+      "tente entrar com seu e-mail e senha: a tela de entrada oferece mandar um link novo.";
+    if (texto) Bio.aviso("#recado", texto);
+  }
+
+  function confirmar(corpo) {
+    Bio.ocupado(btn, true, "Confirmando…");
+    Bio.api("/api/confirmar-email", { method: "POST", corpo: corpo })
+      .then(pronto)
+      .catch(function (e) {
+        Bio.ocupado(btn, false);
+        if (/expirou|j. foi usado/i.test(e.message)) return falhou();
+        Bio.aviso("#recado", e.message);
+      });
+  }
+
+  if (frag.get("error")) return falhou();
+  if (accessToken) return confirmar({ access_token: accessToken });
+  if (!tokenHash) {
+    acao.hidden = true;
+    document.getElementById("texto").textContent =
+      "Abra esta página pelo link que chegou no seu e-mail.";
+    return;
+  }
+  btn.addEventListener("click", function () {
+    confirmar({ token_hash: tokenHash, tipo: tipo });
+  });
+});
+</script>
+
+</body>
+</html>
