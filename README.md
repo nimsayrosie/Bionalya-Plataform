@@ -101,8 +101,11 @@ leva cerca de 1 minuto, porque o servidor grátis dorme).
 
 São **18 telas** servidas por uma API em FastAPI. O que dá para fazer nelas:
 
-- **Analisar um isolado** — marcar os genes de resistência e receber a probabilidade,
-  o limiar aplicado e o peso de cada gene na decisão.
+- **Analisar um isolado** — marcar os genes de resistência, ou enviar o arquivo do
+  isolado (CSV do NCBI, saída do AMRFinderPlus ou lista de genes) para eles virem
+  marcados, e receber a probabilidade, o limiar aplicado e o peso de cada gene na decisão.
+- **Histórico** — cada análise fica guardada por 90 dias em *Minha conta*, onde dá para
+  reabrir ou apagar.
 - **Escolher o modelo** — os quatro algoritmos ficam treinados e guardados para cada
   antibiótico. A equipe define qual responde por padrão e quem analisa pode trocar na hora.
 - **Explorar a base** — buscar entre os isolados por antibiótico, fenótipo ou gene.
@@ -143,10 +146,11 @@ Os detalhes de cada decisão, a lista de rotas e o passo a passo da hospedagem e
 ```
 dados/                        base de dados de isolados
   amostra-neisseria-gonorrhoeae.csv    os 794 isolados com antibiograma (versionada)
-  neisseria-gonorrheae.csv             a base completa, 32 MB (não versionada)
+  neisseria-gonorrheae.csv             a base completa, 31 MB (versionada; não vai para a imagem Docker)
 dados_algoritmos.ipynb        caderno de análise exploratória e treinamento inicial
 docs/
   banco-e-hospedagem.md       banco, login, e-mail e hospedagem: Supabase + Gmail + Render
+  requisitos-lgpd.md          RNF10 reescrito, base legal, prazos e direitos do titular
 imagens/                      logotipo, capturas de tela e diagramas da documentação
 plataforma/                   a aplicação
   api/
@@ -168,6 +172,7 @@ plataforma/                   a aplicação
   README.md                   instruções de instalação, execução e publicação
 bionalya/                     primeira versão das telas, mantida como registro
 render.yaml                   configuração da hospedagem
+LICENSE                       MIT
 ```
 
 ## Como rodar
@@ -208,11 +213,11 @@ python -m pytest
 
 ### O notebook
 
-Para refazer a análise do zero, baixe a base completa em
-[NCBI Pathogen Detection](https://www.ncbi.nlm.nih.gov/pathogens/) — escolha
-*Neisseria gonorrhoeae*, baixe o CSV de isolados e salve como
-`dados/neisseria-gonorrheae.csv`. Depois abra `dados_algoritmos.ipynb` e execute os
-blocos em ordem; eles param com uma mensagem clara se a coluna esperada não existir.
+A base completa já vem no repositório (`dados/neisseria-gonorrheae.csv`, baixada do
+[NCBI Pathogen Detection](https://www.ncbi.nlm.nih.gov/pathogens/)). Abra
+`dados_algoritmos.ipynb` e execute os blocos em ordem; eles param com uma mensagem clara
+se a coluna esperada não existir. Para atualizar a base, baixe de novo o CSV de isolados
+de *Neisseria gonorrhoeae* no NCBI e salve por cima do arquivo.
 
 ### Hospedar
 
@@ -249,9 +254,15 @@ O que é grátis, o que tem prazo e o passo a passo estão em
 - **500 MB de banco na hospedagem.** Os dados ficam no PostgreSQL grátis do Supabase e
   sobrevivem ao reinício, mas os CSVs enviados ocupam esse espaço. Detalhes em
   [`docs/banco-e-hospedagem.md`](docs/banco-e-hospedagem.md).
-- **Sem log de previsões.** Deixado de fora de propósito: gravar consulta associada a
-  usuário é tratamento de dado pessoal e pede base legal e prazo de retenção definidos.
-- **Licença ainda não definida.** Enquanto isso, trate como trabalho acadêmico.
+- **Dados pessoais.** Base legal, prazos de retenção e direitos de quem usa estão em
+  [`docs/requisitos-lgpd.md`](docs/requisitos-lgpd.md), com o RNF10 reescrito. Falta a
+  equipe definir quem é o encarregado (art. 41 da LGPD).
+
+## Licença
+
+[MIT](LICENSE): qualquer pessoa pode usar, copiar e modificar o código, desde que mantenha
+o aviso de autoria. Os dados de isolados vêm do NCBI Pathogen Detection, que é público.
+Nada disso muda o aviso do topo: é um protótipo acadêmico, sem validação clínica.
 
 ## Equipe
 

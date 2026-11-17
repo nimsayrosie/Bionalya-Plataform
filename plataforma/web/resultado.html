@@ -158,6 +158,15 @@ document.addEventListener("DOMContentLoaded", function () {
     sub.append(em, document.createTextNode(
       " · " + r.nome_antibiotico + " · modelo " + r.modelo.nome));
 
+    // Reaberto do histórico (Minha conta): deixa claro que não é análise nova.
+    if (r.feita_em) {
+      var d = new Date(r.feita_em);
+      Bio.aviso("#recado", "Análise feita em " + d.toLocaleDateString("pt-BR") + " às " +
+        d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) +
+        ", reaberta do seu histórico. O modelo pode ter sido treinado de novo desde então.",
+        "info");
+    }
+
     var resistente = r.classe === "resistente";
     var et = document.getElementById("etiqueta-classe");
     et.textContent = resistente ? "Resistente" : "Sensível";

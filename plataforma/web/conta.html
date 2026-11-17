@@ -45,7 +45,7 @@
 
   <div class="cabecalho-pagina">
     <h1>Minha conta</h1>
-    <p>Seus dados na plataforma e a troca de senha.</p>
+    <p>Seus dados na plataforma, o histórico das suas análises e a troca de senha.</p>
   </div>
 
   <div class="recado" id="recado" hidden></div>
@@ -96,15 +96,35 @@
 
   </div>
 
+  <section class="secao" style="margin-top:2rem" aria-labelledby="titulo-analises">
+    <div class="cartao">
+      <div class="topo-linha">
+        <h2 id="titulo-analises">Suas análises</h2>
+        <button class="botao botao-mini botao-recusar" type="button" id="btn-limpar"
+                hidden>Apagar todo o histórico</button>
+      </div>
+      <p class="ajuda" id="ajuda-analises" style="margin-top:0.5rem">
+        Cada análise fica guardada por 90 dias e depois some sozinha. Só você vê o seu
+        histórico.
+      </p>
+      <div class="recado" id="recado-analises" hidden role="status"></div>
+      <ul class="lista-analises" id="lista-analises" style="margin-top:1rem">
+        <li class="carregando">Carregando</li>
+      </ul>
+    </div>
+  </section>
+
   <div class="aviso">
     <span class="etiqueta etiqueta-neutra" aria-hidden="true">Seus dados</span>
     <div>
       <strong>O que a plataforma guarda sobre você</strong>
       <p>Nome, e-mail, instituição, vínculo e a finalidade que você declarou, usados só
-         para liberar e identificar seu acesso. A senha fica com o serviço de login
-         (Supabase), guardada como hash — ninguém, nem a equipe, consegue lê-la. Os
-         dados ficam em servidores do Supabase, fora do Brasil. Para remover sua conta,
-         peça a quem é admin.</p>
+         para liberar e identificar seu acesso, e o histórico das suas análises por 90
+         dias. A senha fica com o serviço de login (Supabase), guardada como hash —
+         ninguém, nem a equipe, consegue lê-la. Os dados ficam em servidores do Supabase,
+         nos Estados Unidos. Conta desativada há mais de um ano é apagada sozinha. Para
+         apagar a sua antes disso, peça a quem é admin: o pedido é atendido em até 15
+         dias.</p>
     </div>
   </div>
 
@@ -159,7 +179,99 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
+  /* ---------------------------------------------- histórico de análises */
+  var listaAn = document.getElementById("lista-analises");
+  var btnLimpar = document.getElementById("btn-limpar");
+
+  function quando(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString("pt-BR") + " " +
+      d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function carregarAnalises() {
+    return Bio.api("/api/eu/analises").then(function (d) {
+      listaAn.innerHTML = "";
+      btnLimpar.hidden = !d.total;
+      if (!d.analises.length) {
+        var vazio = document.createElement("li");
+        vazio.className = "vazio";
+        vazio.textContent = "Nenhuma análise nos últimos " + d.retencao_dias + " dias.";
+        listaAn.appendChild(vazio);
+        return;
+      }
+      d.analises.forEach(function (a) {
+        var li = document.createElement("li");
+        var res = a.classe === "resistente";
+        var etq = document.createElement("span");
+        etq.className = "etiqueta " + (res ? "etiqueta-resistente" : "etiqueta-sensivel");
+        etq.textContent = res ? "Resistente" : "Sensível";
+        var txt = document.createElement("span");
+        txt.className = "analise-texto";
+        txt.textContent = a.nome_antibiotico + " · " + Bio.pct(a.probabilidade) +
+          " · " + a.modelo + " · " + a.n_genes + " gene(s) · " + quando(a.criado_em);
+        var abrir = document.createElement("button");
+        abrir.type = "button";
+        abrir.className = "botao botao-mini botao-claro";
+        abrir.textContent = "Abrir";
+        abrir.addEventListener("click", function () {
+          Bio.ocupado(abrir, true, "Abrindo…");
+          Bio.api("/api/eu/analises/" + a.id).then(function (r) {
+            Bio.guardarResultado(r);
+            location.href = "resultado.html";
+          }).catch(function (e) {
+            Bio.ocupado(abrir, false);
+            Bio.aviso("#recado-analises", e.message);
+          });
+        });
+        var apagar = document.createElement("button");
+        apagar.type = "button";
+        apagar.className = "botao botao-mini botao-claro";
+        apagar.textContent = "Apagar";
+        apagar.setAttribute("aria-label", "Apagar a análise de " + quando(a.criado_em));
+        apagar.addEventListener("click", function () {
+          Bio.ocupado(apagar, true, "…");
+          Bio.api("/api/eu/analises/" + a.id, { method: "DELETE" })
+            .then(carregarAnalises)
+            .catch(function (e) {
+              Bio.ocupado(apagar, false);
+              Bio.aviso("#recado-analises", e.message);
+            });
+        });
+        li.append(etq, txt, abrir, apagar);
+        listaAn.appendChild(li);
+      });
+      if (d.total > d.analises.length) {
+        var mais = document.createElement("li");
+        mais.className = "vazio";
+        mais.textContent = "Mostrando as " + d.analises.length + " mais recentes de " +
+          d.total + ".";
+        listaAn.appendChild(mais);
+      }
+    }).catch(function (e) {
+      listaAn.innerHTML = "";
+      Bio.aviso("#recado-analises", e.message);
+    });
+  }
+
+  btnLimpar.addEventListener("click", function () {
+    Bio.confirmar({
+      titulo: "Apagar todo o seu histórico?",
+      texto: "Todas as análises guardadas somem. Não dá para desfazer. As análises " +
+             "novas que você fizer continuam sendo guardadas por 90 dias.",
+      botao: "Apagar histórico",
+      perigo: true
+    }).then(function (resp) {
+      if (!resp) return;
+      return Bio.api("/api/eu/analises", { method: "DELETE" }).then(function (r) {
+        Bio.aviso("#recado-analises", r.apagadas + " análise(s) apagada(s).", "ok");
+        return carregarAnalises();
+      });
+    }).catch(function (e) { Bio.aviso("#recado-analises", e.message); });
+  });
+
   Bio.exigirLogin().then(function (u) {
+    carregarAnalises();
     campo("nome", u.nome);
     campo("email", u.email);
     campo("instituicao", u.instituicao);

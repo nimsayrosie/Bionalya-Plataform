@@ -8,11 +8,8 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 
-# A base completa do NCBI tem 32 MB e é sempre a mesma: baixe de novo em
-# https://www.ncbi.nlm.nih.gov/pathogens/ em vez de versionar.
-# O que vai para o repositório é dados/amostra-neisseria-gonorrhoeae.csv,
-# com os 794 isolados que têm antibiograma — é só do que a plataforma precisa.
-dados/neisseria-gonorrheae.csv
+# A base completa do NCBI (dados/neisseria-gonorrheae.csv, 31 MB) É versionada,
+# junto com a amostra: quem clona tem as duas e não precisa baixar nada.
 
 # Bases que alguém subiu pela plataforma
 dados/enviadas/

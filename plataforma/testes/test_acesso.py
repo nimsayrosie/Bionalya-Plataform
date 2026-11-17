@@ -22,7 +22,7 @@ def _cadastrar(cliente, email, senha="SenhaBoa123"):
     return cliente.post("/api/cadastro", json={
         "nome": "Pessoa de Teste", "email": email, "instituicao": "UniTeste",
         "vinculo": "estudante", "finalidade": "Testar a plataforma inteira.",
-        "senha": senha, "termos": True})
+        "senha": senha, "termos": True, "consentimento": True})
 
 
 def _ultimo_link(supabase, email, tipo):

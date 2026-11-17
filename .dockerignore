@@ -10,7 +10,8 @@ plataforma/acessos.txt
 **/.env.*
 .neon
 
-# A base completa de 32 MB não vai para a imagem; a amostra versionada basta.
+# A base completa (31 MB) está no repositório, mas não vai para a imagem:
+# a plataforma no ar usa a amostra, que basta para os modelos.
 dados/neisseria-gonorrheae.csv
 dados/enviadas/
 

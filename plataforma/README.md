@@ -13,12 +13,10 @@ treinados cada. A base de *Neisseria gonorrhoeae* vem junto, e dá para importar
 **794 isolados que têm antibiograma**, que é tudo de que os modelos precisam. Com ela a
 plataforma funciona logo depois do clone, sem baixar nada.
 
-A base completa (72.503 isolados, 32 MB) não é versionada, e só muda o que aparece na
-tela *Explorar a base* — os modelos são os mesmos. Se quiser: em
-[NCBI Pathogen Detection](https://www.ncbi.nlm.nih.gov/pathogens/) escolha
-*Neisseria gonorrhoeae*, baixe o CSV de isolados e salve como
-`dados/neisseria-gonorrheae.csv`, na raiz do repositório. Existindo, ela ganha da amostra
-automaticamente.
+A base completa (72.503 isolados, 31 MB) também está no repositório, em
+`dados/neisseria-gonorrheae.csv`. Existindo, ela ganha da amostra automaticamente; ela só
+muda o que aparece na tela *Explorar a base*, porque os modelos são os mesmos. A imagem
+Docker da hospedagem leva só a amostra.
 
 **2. Instalar as dependências.**
 
@@ -183,6 +181,7 @@ plataforma/
     banco.py      tabelas e migração; Postgres (DATABASE_URL) ou SQLite local
     arquivos.py   cópia dos CSVs e modelos no banco, para o disco descartável
     autenticacao.py  login pelo Supabase Auth: cadastro, sessão, senha nova, token
+    isolado.py    lê o arquivo de um isolado (NCBI, AMRFinderPlus, lista) sem gravar
     correio.py    e-mails de acesso liberado/recusado e de conta criada (Gmail)
     seguranca.py  regra mínima de senha e sorteio de senha
     config.py     caminhos, nomes em português e variáveis de ambiente (lê o .env)
@@ -216,7 +215,7 @@ ter um modelo diferente em cada base sem um sobrescrever o outro.
 
 Ao contrário do resto do que é gerado, `modelos/` **vai para o repositório**, de
 propósito: sem ele a hospedagem subiria sem nenhum antibiótico, e treinar na nuvem
-exigiria a base completa de 32 MB. São cerca de 11 MB.
+exigiria a base completa de 31 MB. São cerca de 11 MB.
 
 ## Os modelos
 
@@ -464,7 +463,13 @@ GET    /api/base/antibioticos                   antibióticos com modelo
 GET    /api/antibioticos/{id}/genes             features daquele modelo
 GET    /api/modelos?antibiotico=...             comparação dos 4 algoritmos
 GET    /api/base/isolados                       busca nos isolados
-POST   /api/prever                              a previsão
+POST   /api/prever                              a previsão (fica no histórico por 90 dias)
+POST   /api/isolado/ler                         lê o arquivo do isolado e devolve os genes (não grava)
+GET    /api/eu/analises                         o próprio histórico
+GET    /api/eu/analises/{id}                    reabre uma análise
+DELETE /api/eu/analises/{id}                    apaga uma análise
+DELETE /api/eu/analises                         apaga o histórico todo
+GET    /api/consentimento                       texto do consentimento do cadastro
 POST   /api/eu/senha                            troca a própria senha
 
 GET    /api/notificacoes                        equipe — avisos não lidos
@@ -551,22 +556,24 @@ prazo de retenção sob a LGPD.
 **O banco da hospedagem fica num serviço de terceiro.** Os cadastros, as contas de
 login e os CSVs enviados ficam nos servidores do Supabase, nos Estados Unidos, e os
 e-mails passam pelo Gmail. Sob a LGPD isso é transferência internacional de dado
-pessoal, e entra na mesma definição pendente de base legal. (Criar o projeto do Supabase
-na região de São Paulo resolve a localização, ao custo de respostas mais lentas.)
+pessoal: o consentimento do cadastro informa isso de forma específica, como pede o
+art. 33 da LGPD. (Criar o projeto do Supabase na região de São Paulo resolve a
+localização, ao custo de respostas mais lentas.)
 Regras práticas:
 
 - `DATABASE_URL`, `SUPABASE_SERVICE_KEY` e `SMTP_SENHA` só no painel do Render e no
   `.env` local, nunca no `render.yaml`, no README ou num commit;
 - um backup feito com `pg_dump` tem os mesmos dados e merece o mesmo cuidado.
 
-O **log de previsões** foi deixado de fora de propósito, por isso mesmo: gravar consulta
-ligada a usuário é tratamento de dado pessoal e pede essa definição antes. A tabela está
-desenhada e entra depois.
+**Base legal, prazos e direitos do titular** estão em
+[`docs/requisitos-lgpd.md`](../docs/requisitos-lgpd.md), que também traz o RNF10 reescrito
+para o documento de processo. Em resumo: o cadastro pede consentimento específico (e grava
+a versão do texto); o histórico de análises some sozinho depois de 90 dias; uma conta
+desativada há mais de 12 meses é apagada sozinha; e o arquivo do isolado enviado na Nova
+análise é lido em memória e descartado.
 
 ## O que ainda falta
 
-- Log de previsões, junto com a reescrita do RNF10
-- Upload do CSV do isolado na tela de nova análise (hoje só a marcação de genes)
 - Treino em segundo plano, para a tela não ficar esperando
 - Backup automático do banco da hospedagem (hoje é à mão, com `pg_dump`)
 - Levar os dados de um `bionalya.db` local para o Postgres, se um dia for preciso

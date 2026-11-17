@@ -1034,3 +1034,17 @@ td.dado {
   gap: var(--esp-1);
   margin-top: var(--esp-3);
 }
+
+/* Histórico de análises, em Minha conta */
+.lista-analises { list-style: none; padding: 0; margin: 0; }
+.lista-analises li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--linha);
+}
+.lista-analises li:first-child { border-top: 0; }
+.lista-analises .analise-texto { flex: 1 1 16rem; font-size: var(--t-sm); }
+.lista-analises .vazio { color: var(--roxo-suave); font-size: var(--t-sm); }
