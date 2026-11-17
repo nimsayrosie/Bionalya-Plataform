@@ -99,7 +99,7 @@ minoritária no teste dispara o alerta — e mostra o aviso na tela junto do res
 **No ar em <https://bionalya-uvqh.onrender.com>** (o primeiro acesso depois de um tempo parado
 leva cerca de 1 minuto, porque o servidor grátis dorme).
 
-São **16 telas** servidas por uma API em FastAPI. O que dá para fazer nelas:
+São **18 telas** servidas por uma API em FastAPI. O que dá para fazer nelas:
 
 - **Analisar um isolado** — marcar os genes de resistência e receber a probabilidade,
   o limiar aplicado e o peso de cada gene na decisão.
@@ -112,11 +112,12 @@ São **16 telas** servidas por uma API em FastAPI. O que dá para fazer nelas:
   treina os dela.
 - **Avisos para a equipe** — importar base e treinar modelo não dependem de ninguém,
   então cada uma dessas ações vira um aviso no painel de quem acompanha.
-- **Recuperar a senha** — quem esqueceu pede pela tela de login; a equipe recebe o
-  pedido e um admin gera uma senha nova, que a pessoa troca ao entrar. Ainda sem
-  link por e-mail.
-- **Controle de acesso** — cadastro com aprovação manual e três papéis cumulativos
-  (pesquisador, equipe, administrador).
+- **Recuperar a senha** — quem esqueceu pede pela tela de login e recebe um link por
+  e-mail para criar uma senha nova.
+- **Controle de acesso** — login pelo Supabase, com confirmação de e-mail, aprovação
+  manual pela equipe (a pessoa recebe a decisão por e-mail) e três papéis cumulativos
+  (pesquisador, equipe, administrador). Quem entra com uma senha que outra pessoa
+  definiu é obrigado a trocar na hora.
 
 A identidade usa cinco cores fixas (roxo `#301A4B`, azul `#6DB1BF`, rosa-claro
 `#FFEAEC`, rosa `#F39A9D` e verde `#3F6C51`) e a fonte **Atkinson Hyperlegible**,
@@ -129,8 +130,9 @@ desenhada pelo Braille Institute para baixa visão. Todo texto passa no mínimo 
   <img src="imagens/diagrama-componentes.png" alt="Diagrama de componentes: cliente web, camada de API, camada de domínio e armazenamento" width="900">
 </p>
 
-O cliente nunca alcança o banco nem os arquivos de modelo: tudo passa pela API, que é o
-único lugar onde a permissão é verificada. E o módulo que treina não conversa com o que
+O cliente nunca alcança o banco, o login nem os arquivos de modelo: tudo passa pela
+API, que é o único lugar onde a permissão é verificada. O login é do Supabase, mas as
+telas não falam com ele: a API faz a ponte e guarda as chaves. E o módulo que treina não conversa com o que
 prevê — o primeiro escreve os arquivos em `modelos/`, o segundo os lê.
 
 Os detalhes de cada decisão, a lista de rotas e o passo a passo da hospedagem estão em
@@ -144,7 +146,7 @@ dados/                        base de dados de isolados
   neisseria-gonorrheae.csv             a base completa, 32 MB (não versionada)
 dados_algoritmos.ipynb        caderno de análise exploratória e treinamento inicial
 docs/
-  banco-e-hospedagem.md       onde ficam os dados, o que é grátis, o que tem prazo, Neon + Render
+  banco-e-hospedagem.md       banco, login, e-mail e hospedagem: Supabase + Gmail + Render
 imagens/                      logotipo, capturas de tela e diagramas da documentação
 plataforma/                   a aplicação
   api/
@@ -153,10 +155,14 @@ plataforma/                   a aplicação
     modelos.py                carrega os modelos salvos e responde a previsão
     banco.py                  esquema do banco (Postgres ou SQLite) e migração automática
     arquivos.py               guarda CSVs e modelos no banco, para sobreviverem ao reinício
-    seguranca.py              resumo criptográfico de senha
+    autenticacao.py           login pelo Supabase: cadastro, sessão, senha nova, token
+    correio.py                e-mails de acesso liberado e recusado (Gmail)
+    seguranca.py              regra mínima de senha
     config.py                 caminhos, limites e nomes em português
-  web/                        as 16 telas, o CSS, o tema e o cliente da API
+  web/                        as 18 telas, o CSS, o tema e o cliente da API
   modelos/<base>/             um .joblib e um .json por antibiótico de cada base
+  supabase/                   modelos de e-mail e o script que configura o login
+  testes/                     testes do fluxo de acesso (python -m pytest)
   Dockerfile                  empacotamento para publicação
   requirements.txt            dependências com versão fixada
   README.md                   instruções de instalação, execução e publicação
@@ -177,14 +183,25 @@ python -m venv .venv
 pip install -r plataforma/requirements.txt
 
 cd plataforma
+cp .env.example .env            # e preencha: chaves do Supabase e Gmail
 python -m uvicorn api.main:app --reload
 ```
 
 Abra <http://127.0.0.1:8000>. A documentação da API, gerada sozinha, fica em
 <http://127.0.0.1:8000/docs>.
 
-Na primeira vez que sobe, a API cria a conta de administrador com senha aleatória e
-grava as credenciais em `plataforma/PRIMEIRO-ACESSO.txt`, que não é versionado.
+O login é do Supabase: sem as chaves no `.env`, a API sobe, mas ninguém entra. Peça o
+`.env` a quem cuida da hospedagem, ou crie um projeto seu seguindo
+[`docs/banco-e-hospedagem.md`](docs/banco-e-hospedagem.md). Na primeira vez, se a senha
+do admin não estiver no `.env`, a API sorteia uma e grava em
+`plataforma/PRIMEIRO-ACESSO.txt`, que não é versionado.
+
+Os testes não precisam de chave nenhuma (usam um Supabase de mentira):
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
 
 > **Por que `python -m` e não só `uvicorn`:** no Windows o `uvicorn.exe` costuma ser
 > instalado numa pasta que não está no PATH. O `python -m` chama o pacote direto.
@@ -206,16 +223,18 @@ completo e as variáveis de ambiente estão em
 [`plataforma/README.md`](plataforma/README.md).
 
 O servidor grátis do Render apaga o próprio disco a cada reinício e a cada vez que dorme
-(15 minutos sem acesso). Por isso os dados ficam num **PostgreSQL grátis e sem prazo no
-[Neon](https://neon.com)**: crie o banco lá antes (leva dois minutos, sem cartão) e cole
-o endereço dele quando o Render pedir a variável `DATABASE_URL`. **Nada disso é pago.**
+(15 minutos sem acesso). Por isso o banco e o login ficam no
+**[Supabase](https://supabase.com)**, grátis e sem cartão, e os e-mails saem por uma
+conta Gmail do projeto. Um job do GitHub abre o site duas vezes por semana para o
+Supabase não pausar o projeto. **Nada disso é pago.**
 O que é grátis, o que tem prazo e o passo a passo estão em
 [`docs/banco-e-hospedagem.md`](docs/banco-e-hospedagem.md).
 
 | Peça | Onde | Custo | Prazo |
 |---|---|---|---|
 | Servidor (API e telas) | Render, plano grátis | nenhum | nenhum |
-| Banco (usuários, bases, modelos treinados) | Neon, plano grátis | nenhum | nenhum |
+| Banco e login (usuários, bases, modelos treinados) | Supabase, plano grátis | nenhum | pausa com 7 dias parado (o ping evita) |
+| E-mail (confirmação, senha nova, decisão de acesso) | Gmail do projeto | nenhum | nenhum |
 | Na sua máquina | `plataforma/bionalya.db` (SQLite) | nenhum | nenhum |
 
 ## Limites conhecidos
@@ -227,9 +246,9 @@ O que é grátis, o que tem prazo e o passo a passo estão em
 - **Antibiótico fácil e antibiótico difícil.** O ciprofloxacino depende de poucas
   mutações bem conhecidas. Mecanismos multifatoriais são bem mais difíceis — a cefixima,
   com AUC 0,642, mostra exatamente isso.
-- **1 GB de banco na hospedagem.** Os dados ficam num PostgreSQL grátis e sem prazo
-  (Neon) e sobrevivem ao reinício, mas o espaço é de 1 GB, e os CSVs enviados ocupam
-  esse espaço. Detalhes em [`docs/banco-e-hospedagem.md`](docs/banco-e-hospedagem.md).
+- **500 MB de banco na hospedagem.** Os dados ficam no PostgreSQL grátis do Supabase e
+  sobrevivem ao reinício, mas os CSVs enviados ocupam esse espaço. Detalhes em
+  [`docs/banco-e-hospedagem.md`](docs/banco-e-hospedagem.md).
 - **Sem log de previsões.** Deixado de fora de propósito: gravar consulta associada a
   usuário é tratamento de dado pessoal e pede base legal e prazo de retenção definidos.
 - **Licença ainda não definida.** Enquanto isso, trate como trabalho acadêmico.

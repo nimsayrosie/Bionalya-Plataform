@@ -194,7 +194,7 @@ virar API: AUC 0,994 do melhor modelo e 58 genes como variáveis.
 |---|---|---|
 | Lista/busca de isolados | feito | `plataforma/web/isolados.html` |
 | Tela de cadastro recusado | feito | `plataforma/web/acesso-recusado.html` |
-| Recuperação de senha | feito **sem e-mail**: a pessoa pede pela tela, a equipe recebe um aviso e um admin gera a senha nova. O link por e-mail que este protótipo prometia ainda não existe | `plataforma/web/esqueci-senha.html` e `usuarios.html`; [issue #26](https://github.com/nimsayrosie/Bionalya-Plataform/issues/26) |
+| Recuperação de senha | feito, **com link por e-mail** (Supabase + Gmail). Se o e-mail não sair, o pedido vira aviso e um admin gera a senha nova | `plataforma/web/esqueci-senha.html` e `redefinir-senha.html`; [issue #26](https://github.com/nimsayrosie/Bionalya-Plataform/issues/26) |
 | Painel da equipe para aprovar acessos | feito | `plataforma/web/equipe.html` (e `usuarios.html` para o admin) |
 | Carregando e erro na previsão | feito | `nova-analise.html` e `resultado.html` |
 | Validação sem nenhum gene marcado | feito | `nova-analise.html` avisa, e a API também recusa |
