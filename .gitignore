@@ -21,5 +21,6 @@ dados/enviadas/
 # Nunca versionar: tem a senha do banco dentro.
 .env
 .env.*
+!.env.example
 .neon
 node_modules/

@@ -1,7 +1,7 @@
 # Bionalya — plataforma
 
 Previsão de resistência bacteriana a antibióticos a partir dos genes encontrados no
-sequenciamento. Dezesseis telas, uma API em FastAPI e seis antibióticos com quatro modelos
+sequenciamento. Dezoito telas, uma API em FastAPI e seis antibióticos com quatro modelos
 treinados cada. A base de *Neisseria gonorrhoeae* vem junto, e dá para importar outras.
 
 > **Protótipo acadêmico, sem validação clínica.** Nada aqui é diagnóstico e nada
@@ -29,7 +29,13 @@ python -m venv .venv
 pip install -r plataforma/requirements.txt
 ```
 
-**3. Subir a plataforma.**
+**3. As chaves do login.** O login (cadastro, senha, e-mails) é do Supabase. Copie
+`plataforma/.env.example` para `plataforma/.env` e preencha com as chaves do projeto —
+peça a quem cuida da hospedagem, ou crie um projeto seu seguindo
+[`docs/banco-e-hospedagem.md`](../docs/banco-e-hospedagem.md). Sem elas a API sobe, mas
+ninguém entra.
+
+**4. Subir a plataforma.**
 
 ```bash
 cd plataforma
@@ -45,13 +51,21 @@ python -m uvicorn api.main:app --reload
 Abra <http://127.0.0.1:8000>. A documentação da API, gerada sozinha, fica em
 <http://127.0.0.1:8000/docs>.
 
-**4. Primeiro acesso.** Na primeira vez que sobe, a API cria a conta de **admin** com
-senha aleatória e grava as credenciais em `plataforma/PRIMEIRO-ACESSO.txt`. Esse arquivo
-está no `.gitignore` e a senha não existe em lugar nenhum do repositório. Entre com ela,
-**troque em "Minha conta"** (a tela avisa enquanto você estiver usando a senha inicial),
-e use essa conta para liberar os cadastros e distribuir os papéis.
+**5. Primeiro acesso.** Na primeira vez que sobe, a API cria a conta de **admin**
+(`BIONALYA_ADMIN_EMAIL`) no Supabase. Sem `BIONALYA_ADMIN_SENHA` no `.env`, a senha é
+sorteada e gravada em `plataforma/PRIMEIRO-ACESSO.txt`, que está no `.gitignore`. Ao
+entrar com ela, a plataforma pede na hora para trocar por uma senha sua. Se a conta já
+existir no Supabase (outra pessoa da equipe subiu antes), a senha dela não é mexida.
 
-**5. Onde ficam os dados.** Na sua máquina, o banco é o arquivo `plataforma/bionalya.db`
+**6. Testes.** Não precisam de chave nem de internet: usam um Supabase de mentira e um
+SQLite temporário.
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+**7. Onde ficam os dados.** Na sua máquina, o banco é o arquivo `plataforma/bionalya.db`
 (SQLite), criado sozinho na primeira vez. Ele não se perde ao reiniciar e não vai para o
 GitHub. Para usar um PostgreSQL em vez dele — o mesmo da hospedagem, por exemplo —
 defina a variável `DATABASE_URL` antes de subir:
@@ -71,44 +85,58 @@ Duas formas, ambas na conta de admin:
 
 - **Tela Usuários → "Criar um acesso para compartilhar".** A conta já nasce aprovada,
   sem a pessoa precisar se cadastrar e esperar liberação. Deixando a senha em branco, a
-  plataforma sorteia uma e mostra **uma única vez** — depois disso nem você consegue ler,
-  porque o banco só guarda o hash. É o caminho para a banca e para o orientador.
+  plataforma sorteia uma e mostra **uma única vez** — depois disso ninguém consegue ler.
+  No primeiro acesso, a pessoa é obrigada a trocar por uma senha dela. A pessoa também
+  recebe um e-mail avisando da conta. É o caminho para a banca e para o orientador.
 - **Cadastro comum.** A pessoa se cadastra em `cadastro.html`, fica em análise e alguém
   da equipe libera na tela *Acessos*.
 
-Para uma hospedagem onde o banco se perde a cada reinício, há um terceiro caminho: as
-variáveis `BIONALYA_DEMO_EMAIL` e `BIONALYA_DEMO_SENHA` criam, toda vez que a API sobe,
-uma conta aberta de demonstração — um pesquisador comum, que analisa e consulta mas não
-libera acesso, não treina modelo e não importa base.
+Há um terceiro caminho: as variáveis `BIONALYA_DEMO_EMAIL` e `BIONALYA_DEMO_SENHA`
+garantem, toda vez que a API sobe, uma conta aberta de demonstração — um pesquisador
+comum, que analisa e consulta mas não libera acesso, não treina modelo e não importa
+base. Essa não é obrigada a trocar a senha, de propósito: ela é compartilhada.
+
+### O cadastro e o login
+
+1. A pessoa se cadastra em `cadastro.html`. A conta nasce no Supabase, que manda um
+   **e-mail de confirmação**, e o pedido fica em análise.
+2. O link do e-mail abre `confirmar-email.html`; um clique confirma.
+3. A equipe libera ou recusa em `equipe.html` (a lista mostra se o e-mail já foi
+   confirmado). A pessoa recebe **um e-mail com a decisão**, e o motivo, se for recusa.
+4. Para entrar, precisa das duas coisas: e-mail confirmado e acesso liberado. Quem tenta
+   entrar sem confirmar vê um botão para receber o link de novo.
+
+O token de sessão vale 1 hora; as telas renovam sozinhas, sem a pessoa perceber.
 
 ### Quando alguém esquece a senha
 
-A plataforma ainda não envia e-mail (o Render grátis bloqueia o envio, e um serviço de
-e-mail para qualquer destinatário pede domínio próprio). Então a recuperação passa pela
-equipe:
-
-1. Na tela de login, a pessoa clica em **Esqueci minha senha** (`esqueci-senha.html`),
-   digita o e-mail do cadastro e, se quiser, deixa um recado — por exemplo, outro jeito
-   de falar com ela.
-2. A equipe recebe um **aviso** no painel, com o recado. Pedir várias vezes não gera
-   vários avisos: fica um só, até alguém resolver.
-3. Um **admin** abre o aviso (ele já leva para a tela *Usuários* filtrada naquela
-   pessoa) e clica em **Gerar senha nova**. A senha aparece **uma vez só**.
-4. O admin manda a senha para a pessoa por um canal confiável. A senha antiga para de
-   valer, as sessões abertas caem e, ao entrar, a tela *Minha conta* pede para ela
-   trocar por uma senha dela.
+1. Na tela de login, a pessoa clica em **Esqueci minha senha** (`esqueci-senha.html`) e
+   digita o e-mail do cadastro.
+2. Chega um e-mail com um link, que vale **1 hora** e funciona uma vez.
+3. O link abre `redefinir-senha.html`. Salvando a senha nova, a pessoa já entra, e as
+   outras sessões dela caem.
 
 A tela responde a mesma coisa para qualquer e-mail, exista ou não a conta, para não
-entregar quem está cadastrado. Conta em análise, recusada ou desativada não gera aviso.
-A sua própria senha o admin troca em *Minha conta*, não por aqui.
+entregar quem está cadastrado.
+
+**Plano B, sem e-mail.** Se o e-mail não sair (Gmail fora do ar, limite do dia), o
+pedido vira um aviso no painel da equipe. Um admin abre o aviso, que leva para a tela
+*Usuários* filtrada naquela pessoa, e clica em **Gerar senha nova**. A senha aparece
+uma vez só; o admin manda por um canal confiável e, ao entrar, a pessoa é **obrigada a
+trocar na hora**, num pop-up que não fecha. A API recusa as outras rotas até a troca,
+então o pop-up não dá para contornar.
 
 ### Atualizando uma versão anterior
 
 Não precisa apagar o `bionalya.db`. Ao subir, a API compara o banco com o código e
 acrescenta sozinha as colunas que faltam, preenchendo as linhas antigas com o padrão —
-você vê no terminal um `Banco atualizado — colunas acrescentadas: ...`. Os usuários já
-cadastrados continuam lá. Se o banco for de quando só existiam dois papéis, a conta que
-era da equipe é promovida a admin e mantém a mesma senha.
+você vê no terminal um `Banco atualizado — colunas acrescentadas: ...`.
+
+**A troca para o Supabase é a exceção.** Um banco da época em que a senha ficava aqui
+(coluna `senha_hash`) tem as tabelas `usuarios` e `sessoes` apagadas na partida, e o
+terminal mostra `Login antigo descartado`. O Supabase não importa senha em PBKDF2, e a
+troca foi feita antes de alguém se cadastrar de verdade. Bases, modelos e avisos ficam;
+o admin é recriado.
 
 A migração só sabe **acrescentar** coluna, que é o que o SQLite permite com
 `ALTER TABLE`. Remover ou mudar o tipo de uma coluna pede migração de verdade; se um dia
@@ -130,7 +158,7 @@ apagava a cada reinício.
 | **admin** | tudo acima + mudar papéis e ativar/desativar contas |
 
 São cumulativos: quem é admin pode tudo que a equipe pode. Promover alguém já libera o
-acesso dessa pessoa. Desativar uma conta derruba as sessões abertas dela na hora. A
+acesso dessa pessoa. Desativar uma conta corta o acesso dela na hora. A
 plataforma impede que você rebaixe ou desative a si mesmo, e que o sistema fique sem
 nenhum admin ativo.
 
@@ -144,14 +172,18 @@ plataforma/
     modelos.py    carrega os .joblib e responde a previsão
     banco.py      tabelas e migração; Postgres (DATABASE_URL) ou SQLite local
     arquivos.py   cópia dos CSVs e modelos no banco, para o disco descartável
-    seguranca.py  hash de senha
-    config.py     caminhos e nomes em português
+    autenticacao.py  login pelo Supabase Auth: cadastro, sessão, senha nova, token
+    correio.py    e-mails de acesso liberado/recusado e de conta criada (Gmail)
+    seguranca.py  regra mínima de senha e sorteio de senha
+    config.py     caminhos, nomes em português e variáveis de ambiente (lê o .env)
   modelos/
     <base>/       um .joblib + um .json por antibiótico daquela base
   web/            as telas, o style.css, o tema.js e o app.js
     inicio.html          pública: o que é a plataforma
     login · cadastro · acesso-pendente · acesso-recusado
-    esqueci-senha.html   pública: pedir uma senha nova para a equipe
+    esqueci-senha.html   pública: pedir o link de senha nova por e-mail
+    redefinir-senha.html pública: onde o link de senha nova abre
+    confirmar-email.html pública: onde o link de confirmação do cadastro abre
     index.html           painel
     nova-analise · resultado · modelos · isolados
     bases.html           equipe: importar e listar bases
@@ -159,8 +191,13 @@ plataforma/
     equipe.html          equipe: liberar ou recusar cadastros
     usuarios.html        admin: papéis, contas, acesso compartilhado e senha nova
     conta.html           trocar a própria senha
+  supabase/
+    emails/       modelos de e-mail em português (confirmação, senha nova)
+    configurar.py configura o login do projeto no Supabase de uma vez
+  testes/         testes do fluxo de acesso, com um Supabase de mentira
+  .env.example    as variáveis, para copiar para .env
   Dockerfile      para hospedar (na sua máquina não precisa)
-  bionalya.db     o banco (gerado na primeira execução)
+  bionalya.db     o banco local (gerado na primeira execução)
 ```
 
 Os modelos ficam **em pasta por base** (`modelos/neisseria-gonorrhoeae/…`), e no banco a
@@ -312,60 +349,44 @@ alguns MB.
 | Login, aprovação, papéis | não | sim |
 | Treinar modelo, importar base | não | sim |
 
-### Render, plano grátis
+### Render + Supabase + Gmail, tudo grátis
 
-O repositório já traz o `Dockerfile` e o `render.yaml` prontos.
+O repositório já traz o `Dockerfile` e o `render.yaml` prontos. São três peças:
 
-1. Suba o repositório para o GitHub (incluindo `plataforma/modelos/` e
-   `dados/amostra-neisseria-gonorrhoeae.csv`).
-2. **Crie o banco no [Neon](https://neon.com)** (grátis, sem prazo, sem cartão): um
-   projeto chamado `bionalya`, na região **US West (Oregon)**, a mesma do serviço. Em
-   **Connect**, copie a *connection string* (`postgresql://...?sslmode=require`) e guarde
-   como senha. Não precisa criar tabela: a API cria tudo sozinha.
-3. Em [dashboard.render.com](https://dashboard.render.com), **New → Blueprint**, aponte
-   para o repositório. Ele lê o `render.yaml` e monta o serviço sozinho. Não pede cartão.
-   Quando ele pedir o valor de **`DATABASE_URL`**, cole a linha do Neon. (Serviço que já
-   existe: *Environment → Add Environment Variable*.)
-4. Primeiro build leva uns 5 minutos. No fim sai uma URL `https://bionalya-xxxx.onrender.com`
-   (a da Bionalya hoje é <https://bionalya-uvqh.onrender.com>).
-5. Em **Environment**, copie o valor de `BIONALYA_ADMIN_SENHA` — o Render sorteou essa
-   senha e é com ela que você entra como admin.
-6. **Confira que os dados ficam:** cadastre algo, clique em *Manual Deploy → Restart* e
-   entre de novo. Tem que estar tudo lá.
+- **Render** roda a API e as telas. Dorme depois de 15 minutos sem acesso (a primeira
+  visita leva cerca de 1 minuto) e **apaga o disco** a cada reinício.
+- **Supabase** guarda o banco (Postgres) e cuida do login. Pausa o projeto depois de 7
+  dias sem uso; um job do GitHub (`.github/workflows/manter-acordado.yml`) abre o site
+  duas vezes por semana para isso não acontecer.
+- **Gmail do projeto**, com senha de app, manda os e-mails: confirmação de cadastro,
+  link de senha nova e a decisão da equipe.
 
-Com o banco persistente, a conta de admin é criada **uma vez só**, na primeira partida.
-Se você trocar a senha em *Minha conta*, vale a nova; mudar `BIONALYA_ADMIN_SENHA` no
-painel depois disso não altera a conta que já existe.
+Em resumo:
 
-O que esperar do plano grátis: 750 horas de instância por mês (uma instância ligada o mês
-inteiro cabe), o serviço **dorme depois de 15 minutos** sem acesso e a primeira visita
-depois disso leva cerca de 1 minuto para acordar, e **o disco é descartável** — a cada
-reinício o que está nele volta do zero.
+1. Crie a conta Gmail do projeto, ative a verificação em duas etapas e gere uma senha
+   de app.
+2. Crie o projeto no Supabase e copie a URL, as duas chaves e o endereço do banco
+   (*Connect → Session pooler*).
+3. Rode `python supabase/configurar.py --aplicar` na sua máquina: configura SMTP,
+   modelos de e-mail em português e os endereços permitidos.
+4. No Render (*New → Blueprint* num serviço novo, ou *Environment* no que já existe),
+   preencha as variáveis que ele pedir.
+5. Abra `/saude`: `banco`, `login` e `email` têm que estar `true`.
 
-Por isso, na hospedagem, os dados ficam num **PostgreSQL no [Neon](https://neon.com)**,
-grátis e sem prazo, ligado ao serviço pela variável `DATABASE_URL` (o Render pede o
-valor ao criar o serviço). O Postgres grátis do próprio Render não é usado: ele é
-apagado 30 dias depois de criado se ninguém pagar.
+**O passo a passo completo**, com onde achar cada chave e o que fazer sem o script, está
+em [`docs/banco-e-hospedagem.md`](../docs/banco-e-hospedagem.md). A lista de variáveis
+está em [`.env.example`](.env.example).
 
-**Tudo sobre isso** — o que é grátis, o que tem prazo, o passo a passo do Neon e o que
-mudou no código — está em [`docs/banco-e-hospedagem.md`](../docs/banco-e-hospedagem.md).
-
-| Variável | Para quê |
-|---|---|
-| `DATABASE_URL` | o Postgres. Sem ela, a API usa o `bionalya.db` local (SQLite) |
-| `BIONALYA_ARQUIVOS_NO_BANCO` | `1` ou `0` força ligar ou desligar a cópia dos arquivos no banco. Padrão: ligada com Postgres, desligada com SQLite |
-| `BIONALYA_ADMIN_EMAIL` | e-mail da conta de admin (padrão: `equipe@bionalya.app`) |
-| `BIONALYA_ADMIN_SENHA` | senha dela. Em branco = sorteada e gravada em `PRIMEIRO-ACESSO.txt` |
-| `BIONALYA_DEMO_EMAIL` | conta aberta de demonstração. Sem ela, não existe |
-| `BIONALYA_DEMO_SENHA` | senha da conta de demonstração |
-| `BIONALYA_DEMO_NOME` | nome que aparece nela |
+A conta de admin é criada **uma vez só**, na primeira partida. Se você trocar a senha em
+*Minha conta*, vale a nova; mudar `BIONALYA_ADMIN_SENHA` no painel depois disso não
+altera a conta que já existe.
 
 ### O que fica guardado
 
 | O quê | Onde mora | Sobrevive ao reinício? |
 |---|---|---|
-| Usuários, papéis, senhas (hash) | tabela `usuarios` | sim |
-| Sessões abertas (quem está logado) | tabela `sessoes` | sim — ninguém é deslogado |
+| E-mail e senha (hash bcrypt), sessões | Supabase Auth | sim |
+| Nome, instituição, finalidade, papel, status | tabela `usuarios` | sim |
 | Bases cadastradas e o termo aceito | tabela `bases` | sim |
 | Antibióticos, nome em português, modelo padrão | tabela `antibioticos` | sim |
 | Avisos para a equipe | tabela `notificacoes` | sim |
@@ -378,14 +399,14 @@ grava um CSV ou treina um modelo, o arquivo vai também para a tabela `arquivos`
 a base é removida, a cópia sai junto; e na partida o que falta no disco é recriado
 antes de tudo. O disco continua sendo de onde tudo é lido.
 
-Os arquivos ocupam o espaço do Postgres: o grátis do Neon tem 1 GB, e cada CSV pode ter
+Os arquivos ocupam o espaço do Postgres: o grátis do Supabase tem 500 MB, e cada CSV pode ter
 até 120 MB (`MAX_MB_BASE`). Com SQLite, na sua máquina, a cópia fica desligada — o disco
 já é permanente e ela só dobraria o espaço.
 
 Quando há arquivos para recriar, o log da partida mostra
 `N arquivo(s) recriados a partir do banco.`
 
-**Backup.** O plano grátis do Neon não faz cópia de segurança automática. Para guardar
+**Backup.** O plano grátis do Supabase não faz cópia de segurança automática. Para guardar
 uma, rode na sua máquina (precisa do `pg_dump`, que vem com o PostgreSQL):
 
 ```bash
@@ -401,27 +422,27 @@ Com Docker, o contexto do build é a **raiz do repositório**, não a pasta `pla
 
 ```bash
 docker build -f plataforma/Dockerfile -t bionalya .
-docker run -p 8000:8000 -e BIONALYA_ADMIN_SENHA=escolha-uma bionalya
+docker run -p 8000:8000 --env-file plataforma/.env bionalya
 ```
 
-Sem `DATABASE_URL`, o banco fica dentro do container e some quando ele é recriado. Para
-os dados ficarem, passe um Postgres:
-
-```bash
-docker run -p 8000:8000 -e BIONALYA_ADMIN_SENHA=escolha-uma \
-  -e DATABASE_URL='postgresql://...' bionalya
-```
+O `.env` não entra na imagem (está no `.dockerignore`): as variáveis vão na hora de
+rodar. Sem `DATABASE_URL`, o banco fica dentro do container e some quando ele é
+recriado.
 
 ## A API
 
 Documentação navegável em `/docs`. As rotas:
 
 ```
-POST   /api/cadastro                            solicita acesso
-POST   /api/sessao                              entra, devolve token
+POST   /api/cadastro                            solicita acesso (manda e-mail de confirmação)
+POST   /api/confirmar-email                     confirma pelo link do e-mail
+POST   /api/reenviar-confirmacao                manda o link de confirmação de novo
+POST   /api/sessao                              entra, devolve token e refresh_token
+POST   /api/sessao/renovar                      troca o refresh_token por um token novo
 DELETE /api/sessao                              sai
 GET    /api/eu                                  quem está logado
-POST   /api/recuperar-senha                     pede senha nova (vira aviso para a equipe)
+POST   /api/recuperar-senha                     manda o link de senha nova por e-mail
+POST   /api/redefinir-senha                     define a senha nova a partir do link
 
 GET    /api/termo-base                          o termo e os limites do envio
 GET    /api/bases                               as bases que esta pessoa enxerga
@@ -455,8 +476,13 @@ As rotas que falam de um antibiótico usam a chave composta
 `<base>__<antibiotico>` — por exemplo `neisseria-gonorrhoeae__ciprofloxacin`. As que
 falam de uma base aceitam `?base=<id>`; sem isso, usam a base de fábrica.
 
-Autenticação por token no cabeçalho: `Authorization: Bearer <token>`. O token vem do
-`POST /api/sessao` e vale 12 horas.
+Autenticação por token no cabeçalho: `Authorization: Bearer <token>`. O token é do
+Supabase, vem do `POST /api/sessao` e vale 1 hora; o `refresh_token` que vem junto
+renova em `POST /api/sessao/renovar` (o `app.js` faz isso sozinho). A API confere a
+assinatura do token pela chave pública do projeto, sem ir ao Supabase a cada pedido.
+
+Enquanto a pessoa estiver com uma senha que outra pessoa definiu, só `GET /api/eu` e
+`POST /api/eu/senha` respondem; o resto devolve 403 pedindo a troca.
 
 Exemplo de previsão:
 
@@ -486,10 +512,17 @@ treino e usa os coeficientes dela, dizendo isso na própria resposta.
 
 ## Segurança e dados pessoais
 
-Senha guardada só como hash PBKDF2-SHA256; nem a equipe consegue ler a senha de alguém.
-Login e e-mail inexistente devolvem a mesma mensagem, para não entregar a quem está
-tentando a informação de que o e-mail existe. Recusar um cadastro derruba as sessões
-abertas daquela pessoa.
+A senha não passa pelo nosso banco: fica no Supabase Auth, como hash bcrypt; nem a
+equipe consegue ler a senha de alguém. Login com senha errada e com e-mail inexistente
+devolvem a mesma mensagem, e o pedido de senha nova responde igual exista ou não a
+conta, para não entregar quem está cadastrado. Recusar ou desativar alguém corta o
+acesso na hora, porque toda rota confere o status. Senha definida por outra pessoa
+precisa ser trocada antes de qualquer outra coisa.
+
+As telas nunca falam com o Supabase: a chave secreta dele, a senha do banco e a senha
+de app do Gmail ficam só no servidor. O Supabase publica as tabelas numa API REST
+própria; a API liga o RLS em todas elas, sem política nenhuma, para essa porta ficar
+fechada.
 
 Com o envio de base pelo pesquisador, a plataforma passou a guardar **dado de
 terceiro**, não só o cadastro de quem usa. Por isso o termo de responsabilidade é
@@ -504,13 +537,15 @@ contradiz o **RNF10** como ele está escrito hoje. Esse requisito precisa ser re
 vale somar requisitos de autenticação, armazenamento de senha com hash, base legal e
 prazo de retenção sob a LGPD.
 
-**O banco da hospedagem fica num serviço de terceiro.** No Render com Neon, os
-cadastros, as sessões e os CSVs enviados ficam guardados nos servidores do Neon, nos
-Estados Unidos. Sob a LGPD isso é transferência internacional de dado pessoal, e entra
-na mesma definição pendente de base legal. Duas regras práticas:
+**O banco da hospedagem fica num serviço de terceiro.** Os cadastros, as contas de
+login e os CSVs enviados ficam nos servidores do Supabase, nos Estados Unidos, e os
+e-mails passam pelo Gmail. Sob a LGPD isso é transferência internacional de dado
+pessoal, e entra na mesma definição pendente de base legal. (Criar o projeto do Supabase
+na região de São Paulo resolve a localização, ao custo de respostas mais lentas.)
+Regras práticas:
 
-- a `DATABASE_URL` contém a senha do banco: só no painel do Render, nunca no
-  `render.yaml`, no README ou num commit;
+- `DATABASE_URL`, `SUPABASE_SERVICE_KEY` e `SMTP_SENHA` só no painel do Render e no
+  `.env` local, nunca no `render.yaml`, no README ou num commit;
 - um backup feito com `pg_dump` tem os mesmos dados e merece o mesmo cuidado.
 
 O **log de previsões** foi deixado de fora de propósito, por isso mesmo: gravar consulta
@@ -520,8 +555,6 @@ desenhada e entra depois.
 ## O que ainda falta
 
 - Log de previsões, junto com a reescrita do RNF10
-- Recuperação de senha por e-mail, com link. Hoje a pessoa pede pela tela e um admin
-  gera a senha nova; para virar link por e-mail falta um serviço de envio (e um domínio)
 - Upload do CSV do isolado na tela de nova análise (hoje só a marcação de genes)
 - Treino em segundo plano, para a tela não ficar esperando
 - Backup automático do banco da hospedagem (hoje é à mão, com `pg_dump`)

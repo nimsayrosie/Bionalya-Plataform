@@ -1,0 +1,27 @@
+# Roda os testes da plataforma a cada push e pull request.
+# Os testes usam um Supabase de mentira e um SQLite temporário: não precisam de
+# nenhuma chave nem de rede além do pip.
+
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: plataforma
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: plataforma/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest

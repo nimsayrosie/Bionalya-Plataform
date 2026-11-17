@@ -33,7 +33,11 @@
   <div class="cartao">
     <h1 style="font-size:1.75rem">Entrar</h1>
 
-    <div class="recado" id="recado" hidden></div>
+    <div class="recado" id="recado" hidden role="status"></div>
+    <p id="reenviar" hidden style="margin-top:0.75rem">
+      <button class="botao botao-mini botao-claro" type="button" id="btn-reenviar">
+        Mandar o link de confirmação de novo</button>
+    </p>
 
     <form id="form-login" style="margin-top:2rem" novalidate>
 
@@ -86,13 +90,32 @@ document.addEventListener("DOMContentLoaded", function () {
   var btn = f.querySelector("button[type=submit]");
   var params = new URLSearchParams(location.search);
 
+  var reenviar = document.getElementById("reenviar");
+  var btnReenviar = document.getElementById("btn-reenviar");
+
   if (params.get("expirou")) Bio.aviso("#recado", "Sua sessão expirou. Entre de novo.", "info");
   if (params.get("saiu"))    Bio.aviso("#recado", "Você saiu da conta.", "ok");
+  if (params.get("senha"))   Bio.aviso("#recado", "Senha nova definida. Entre com ela.", "ok");
+  if (params.get("email"))   f.email.value = params.get("email");
+
+  btnReenviar.addEventListener("click", function () {
+    Bio.ocupado(btnReenviar, true, "Enviando…");
+    Bio.api("/api/reenviar-confirmacao", { method: "POST", corpo: {
+      email: f.email.value.trim()
+    }}).then(function (r) {
+      reenviar.hidden = true;
+      Bio.aviso("#recado", r.mensagem, "ok");
+    }).catch(function (e) {
+      Bio.ocupado(btnReenviar, false);
+      Bio.aviso("#recado", e.message);
+    });
+  });
   if (Bio.token()) location.href = params.get("volta") || "index.html";
 
   f.addEventListener("submit", function (ev) {
     ev.preventDefault();
     Bio.aviso("#recado", null);
+    reenviar.hidden = true;
     Bio.ocupado(btn, true, "Entrando…");
     Bio.api("/api/sessao", { method: "POST", corpo: {
       email: f.email.value.trim(), senha: f.senha.value
@@ -104,6 +127,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (/recusad/i.test(e.message)) { location.href = "acesso-recusado.html"; return; }
       if (/em an.lise/i.test(e.message)) { location.href = "acesso-pendente.html"; return; }
       Bio.aviso("#recado", e.message);
+      if (/confirme seu e-mail/i.test(e.message)) reenviar.hidden = false;
     });
   });
 });

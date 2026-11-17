@@ -5,6 +5,10 @@
 plataforma/bionalya.db
 plataforma/PRIMEIRO-ACESSO.txt
 plataforma/acessos.txt
+# Chaves do Supabase e senha do SMTP: na hospedagem vêm do painel, nunca da imagem.
+**/.env
+**/.env.*
+.neon
 
 # A base completa de 32 MB não vai para a imagem; a amostra versionada basta.
 dados/neisseria-gonorrheae.csv
@@ -17,6 +21,8 @@ dados/enviadas/
 venv/
 
 # Repositório e material que não é código
+plataforma/testes/
+plataforma/supabase/
 .git/
 .github/
 imagens/

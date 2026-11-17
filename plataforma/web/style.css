@@ -993,3 +993,30 @@ td.dado {
   text-align: center;
   vertical-align: 1px;
 }
+
+/* ------------------------------------------------------------------------ */
+/* Pop-up de troca obrigatória de senha (app.js)                            */
+/* Abre quando a pessoa entra com uma senha que outra pessoa definiu.       */
+/* ------------------------------------------------------------------------ */
+.dialogo {
+  width: min(28rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: var(--esp-4);
+  border: var(--borda);
+  border-radius: var(--raio);
+  background: var(--superficie);
+  color: var(--texto);
+  font-family: var(--fonte-ui);
+}
+.dialogo::backdrop {
+  background: rgba(48, 26, 75, 0.72);
+}
+.dialogo h2 { font-size: var(--t-xl); margin: 0; }
+.dialogo > p { margin-top: var(--esp-1); color: var(--roxo-suave); font-size: var(--t-sm); }
+.dialogo form { margin-top: var(--esp-3); }
+.dialogo .dialogo-rodape {
+  margin-top: var(--esp-2);
+  font-size: var(--t-sm);
+  text-align: center;
+}

@@ -10,12 +10,13 @@
 #     leva cerca de 1 minuto para acordar
 #   · o disco é descartável: a cada reinício o que está nele volta do zero
 #
-# Por causa do disco, os dados ficam num PostgreSQL fora do Render, no Neon
-# (neon.com), que é grátis e não tem prazo. O Postgres grátis do próprio Render
-# NÃO serve: ele é apagado 30 dias depois de criado se ninguém pagar.
-# Usuários, sessões, bases, modelos treinados, notificações — e até os CSVs
-# enviados e os .joblib — vão para o Neon; na partida, a API recria no disco o
-# que estiver faltando. Passo a passo em docs/banco-e-hospedagem.md.
+# Por causa do disco, os dados ficam fora do Render, no Supabase (grátis):
+#   · o banco PostgreSQL: usuários, bases, modelos treinados, avisos — e até os
+#     CSVs enviados e os .joblib, que a API recria no disco na partida
+#   · o login: e-mail, senha, confirmação de cadastro e o link de senha nova
+# Os e-mails saem por uma conta Gmail do projeto (SMTP com senha de app).
+# O Postgres grátis do próprio Render NÃO serve: é apagado 30 dias depois de
+# criado. Passo a passo em docs/banco-e-hospedagem.md.
 
 services:
   - type: web
@@ -28,17 +29,41 @@ services:
     healthCheckPath: /saude
     autoDeploy: true
     envVars:
-      # Onde fica o banco: o endereço de conexão do Neon. sync: false faz o
-      # Render pedir o valor na hora de criar o serviço (ele não fica escrito
-      # aqui porque tem a senha do banco dentro).
+      # sync: false faz o Render pedir o valor na hora de criar o serviço. Os
+      # valores não ficam escritos aqui porque são senhas e chaves.
+
+      # Banco: Supabase > botão "Connect" > "Session pooler" (porta 5432).
+      # A conexão direta do Supabase é só IPv6, e o Render não sai por IPv6.
       - key: DATABASE_URL
         sync: false
 
-      # Conta de admin. O e-mail você escolhe; a senha o Render sorteia na
-      # primeira vez (generateValue) e guarda — dá para ler no painel, em
-      # Environment, depois do primeiro deploy.
+      # Login: Supabase > Project Settings > API Keys.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+
+      # Endereço público do site: vai nos links dos e-mails.
+      - key: SITE_URL
+        value: https://bionalya-uvqh.onrender.com
+
+      # E-mail: Gmail do projeto, com senha de app (não a senha da conta).
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORTA
+        value: "587"
+      - key: SMTP_USUARIO
+        sync: false
+      - key: SMTP_SENHA
+        sync: false
+
+      # Conta de admin. Use um e-mail que exista de verdade: é para ele que vai
+      # o link de senha nova. A senha o Render sorteia na primeira vez
+      # (generateValue) e guarda — dá para ler no painel, em Environment.
       - key: BIONALYA_ADMIN_EMAIL
-        value: equipe@bionalya.app
+        sync: false
       - key: BIONALYA_ADMIN_SENHA
         generateValue: true
 

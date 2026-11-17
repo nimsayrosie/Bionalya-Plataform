@@ -1,0 +1,42 @@
+# Mantém o projeto do Supabase acordado.
+#
+# O Supabase grátis pausa o projeto depois de 7 dias sem uso, e com ele param o
+# banco e o login: o site inteiro fica fora do ar até alguém reativar no painel.
+# Duas vezes por semana este job abre /saude, que acorda o Render e faz uma
+# consulta ao banco — é isso que conta como uso.
+#
+# Se o banco não responder, o job falha e o GitHub manda e-mail para quem fez o
+# último commit no workflow. Também dá para rodar na mão: aba Actions >
+# "Manter acordado" > Run workflow.
+#
+# Atenção: o GitHub desliga workflows agendados de repositório sem nenhum
+# commit há 60 dias. Se isso acontecer, a aba Actions avisa e tem um botão
+# para religar.
+
+name: Manter acordado
+
+on:
+  schedule:
+    - cron: "17 12 * * 1,4"     # segunda e quinta, 9h17 em Brasília
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Abrir /saude
+        env:
+          SITE: ${{ vars.SITE_URL || 'https://bionalya-uvqh.onrender.com' }}
+        run: |
+          # O Render grátis leva até um minuto para acordar: tenta algumas vezes.
+          for tentativa in 1 2 3 4 5; do
+            if resposta=$(curl -fsS --max-time 90 "$SITE/saude"); then
+              echo "$resposta"
+              echo "$resposta" | grep -q '"banco":true' && exit 0
+              echo "A API respondeu, mas o banco não."
+            fi
+            sleep 30
+          done
+          echo "::error::$SITE/saude não respondeu com o banco no ar."
+          exit 1

@@ -1,13 +1,16 @@
 """Banco da Bionalya, via SQLAlchemy.
 
-Na hospedagem é PostgreSQL (variável DATABASE_URL), porque o disco do plano
-grátis é descartável e o SQLite sumiria a cada reinício. Na sua máquina, sem
-a variável, continua sendo o arquivo bionalya.db.
+Na hospedagem é o PostgreSQL do Supabase (variável DATABASE_URL), porque o
+disco do plano grátis do Render é descartável e o SQLite sumiria a cada
+reinício. Na sua máquina, sem a variável, continua sendo o arquivo bionalya.db.
 
-Três tabelas:
-  usuarios      quem pediu acesso, com status e papel
-  sessoes       token -> usuário, com validade
+Tabelas:
+  usuarios      quem pediu acesso, com status e papel. E-mail e senha ficam no
+                Supabase Auth; a ligação é a coluna auth_id
+  bases         os CSVs de isolados
   antibioticos  quais aparecem na plataforma e qual o nome em português
+  notificacoes  avisos para a equipe
+  arquivos      cópia dos CSVs e modelos, para sobreviverem ao reinício
 
 O que NÃO está aqui, de propósito: log de previsões. Ele entra depois, junto
 com a reescrita do RNF10, porque gravar consulta ligada a usuário é tratamento
@@ -16,14 +19,13 @@ de dado pessoal e precisa de base legal e prazo de retenção definidos.
 
 from __future__ import annotations
 
-import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from sqlalchemy import (Boolean, DateTime, ForeignKey, Integer, LargeBinary,
+from sqlalchemy import (Boolean, DateTime, Integer, LargeBinary,
                         String, Text,
                         create_engine, select)
 from sqlalchemy.orm import (DeclarativeBase, Mapped, Session, mapped_column,
-                            relationship, sessionmaker)
+                            sessionmaker)
 
 from . import config
 
@@ -60,7 +62,11 @@ class Usuario(Base):
     instituicao: Mapped[str] = mapped_column(String(160))
     vinculo: Mapped[str] = mapped_column(String(32))
     finalidade: Mapped[str] = mapped_column(Text, default="")
-    senha_hash: Mapped[str] = mapped_column(String(256))
+    # O id da conta no Supabase Auth (o "sub" do token). Vazio só enquanto a
+    # conta não foi ligada, o que a API resolve no primeiro login.
+    auth_id: Mapped[str | None] = mapped_column(String(64), unique=True,
+                                                index=True, nullable=True)
+    email_confirmado: Mapped[bool] = mapped_column(Boolean, default=False)
 
     papel: Mapped[str] = mapped_column(String(16), default="pesquisador")
     status: Mapped[str] = mapped_column(String(16), default="em_analise")
@@ -70,10 +76,9 @@ class Usuario(Base):
     decidido_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
     motivo_recusa: Mapped[str | None] = mapped_column(Text, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # False quando a senha foi sorteada (pelo admin ou na partida): a tela
+    # Minha conta pede para trocar.
     senha_trocada: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    sessoes: Mapped[list["Sessao"]] = relationship(
-        back_populates="usuario", cascade="all, delete-orphan")
 
     def publico(self) -> dict:
         return {
@@ -87,33 +92,8 @@ class Usuario(Base):
             "motivo_recusa": self.motivo_recusa,
             "ativo": self.ativo,
             "senha_trocada": self.senha_trocada,
+            "email_confirmado": self.email_confirmado,
         }
-
-
-class Sessao(Base):
-    __tablename__ = "sessoes"
-
-    token: Mapped[str] = mapped_column(String(64), primary_key=True)
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
-    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=agora)
-    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-
-    usuario: Mapped[Usuario] = relationship(back_populates="sessoes")
-
-    @classmethod
-    def nova(cls, usuario: Usuario) -> "Sessao":
-        return cls(
-            token=secrets.token_urlsafe(32),
-            usuario_id=usuario.id,
-            expira_em=agora() + timedelta(hours=config.HORAS_SESSAO),
-        )
-
-    @property
-    def valida(self) -> bool:
-        exp = self.expira_em
-        if exp.tzinfo is None:
-            exp = exp.replace(tzinfo=timezone.utc)
-        return exp > agora()
 
 
 class BaseDados(Base):
@@ -246,7 +226,10 @@ def _criar_motor():
                              connect_args={"check_same_thread": False})
     # pool_pre_ping: o Postgres do plano grátis derruba conexão parada, e sem
     # isso a primeira consulta depois de um tempo quieto quebra.
-    return create_engine(url, echo=False, pool_pre_ping=True, pool_recycle=300)
+    # Pool pequeno: o pooler do Supabase grátis aceita poucas conexões, e uma
+    # instância do Render nunca precisa de mais que isso.
+    return create_engine(url, echo=False, pool_pre_ping=True, pool_recycle=300,
+                         pool_size=3, max_overflow=4, pool_timeout=20)
 
 
 motor = _criar_motor()
@@ -256,10 +239,53 @@ Sessao_db = sessionmaker(bind=motor, expire_on_commit=False)
 
 def criar_tabelas() -> list[str]:
     """Cria o que falta e devolve as colunas acrescentadas a tabelas antigas."""
+    _descartar_login_antigo()
     Base.metadata.create_all(motor)
     novas = migrar()
     _limpar_antibioticos_antigos()
+    _fechar_api_rest_do_supabase()
     return novas
+
+
+def _descartar_login_antigo() -> None:
+    """Banco da época em que a senha ficava aqui: recria usuarios do zero.
+
+    Antes do Supabase, usuarios tinha senha_hash (NOT NULL) e havia a tabela
+    sessoes. Não dá para levar essas contas: o Supabase não importa hash
+    PBKDF2. Como a troca foi feita antes de alguém se cadastrar de verdade,
+    a saída é apagar as duas tabelas; o admin e a demonstração são recriados
+    na partida. Bases, modelos e avisos ficam intactos.
+    """
+    from sqlalchemy import inspect, text
+
+    inspetor = inspect(motor)
+    if not inspetor.has_table("usuarios"):
+        return
+    colunas = {c["name"] for c in inspetor.get_columns("usuarios")}
+    if "senha_hash" not in colunas:
+        return
+    with motor.begin() as con:
+        con.execute(text('DROP TABLE IF EXISTS "sessoes"'))
+        con.execute(text('DROP TABLE "usuarios"'))
+    print("Login antigo descartado: as contas passam a ficar no Supabase.")
+
+
+def _fechar_api_rest_do_supabase() -> None:
+    """Liga o RLS em todas as tabelas, sem nenhuma política.
+
+    O Supabase publica toda tabela do schema public numa API REST, e a chave
+    que abre essa API (anon) é pública por definição. Sem RLS, qualquer um com
+    ela leria a tabela usuarios. Com RLS ligado e nenhuma política, a API REST
+    não vê nada; a nossa API continua lendo tudo, porque conecta como o dono
+    das tabelas, que não passa pelo RLS. Fora do Postgres não faz nada.
+    """
+    if SQLITE:
+        return
+    from sqlalchemy import text
+
+    with motor.begin() as con:
+        for tabela in Base.metadata.sorted_tables:
+            con.execute(text(f'ALTER TABLE "{tabela.name}" ENABLE ROW LEVEL SECURITY'))
 
 
 def migrar() -> list[str]:
@@ -321,11 +347,13 @@ def sessao() -> Session:
     return Sessao_db()
 
 
-def buscar_por_token(db: Session, token: str) -> Usuario | None:
-    s = db.get(Sessao, token)
-    if s is None or not s.valida:
-        return None
-    return db.get(Usuario, s.usuario_id)
+def usuario_por_email(db: Session, email: str) -> Usuario | None:
+    return db.execute(select(Usuario).where(Usuario.email == (email or "").strip().lower())
+                      ).scalars().first()
+
+
+def usuario_por_auth(db: Session, auth_id: str) -> Usuario | None:
+    return db.execute(select(Usuario).where(Usuario.auth_id == auth_id)).scalars().first()
 
 
 def contar(db: Session, modelo, **filtros) -> int:

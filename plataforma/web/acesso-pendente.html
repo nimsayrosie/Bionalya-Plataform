@@ -32,22 +32,23 @@
   <div class="cartao cartao-rosa estado-centro">
     <span class="etiqueta etiqueta-neutra">Em análise</span>
     <h1 style="font-size:1.75rem;margin-top:0.5rem">Solicitação enviada</h1>
-    <p style="margin-top:1rem">
+    <p style="margin-top:1rem" id="texto-pendente">
       A equipe vai conferir seu vínculo institucional e responder no e-mail que você
       cadastrou. Normalmente leva até dois dias úteis.
     </p>
+    <div class="recado recado-info" id="recado-confirmar" hidden role="status"></div>
   </div>
 
   <section class="secao" style="margin-top:2rem">
     <h2 style="font-size:1.25rem;margin-bottom:1rem">O que acontece agora</h2>
     <div class="cartao">
       <div class="linha-metrica">
-        <span><strong>1.</strong> Conferência do e-mail institucional</span>
-        <span class="barra barra-verde"><span style="width:100%"></span></span>
-        <span class="valor">feito</span>
+        <span><strong>1.</strong> Confirmação do e-mail, pelo link que mandamos</span>
+        <span class="barra barra-verde"><span style="width:100%" data-passo1></span></span>
+        <span class="valor" data-passo1-valor>feito</span>
       </div>
       <div class="linha-metrica">
-        <span><strong>2.</strong> Análise do vínculo e da finalidade</span>
+        <span><strong>2.</strong> Análise do vínculo e da finalidade pela equipe</span>
         <span class="barra"><span style="width:45%"></span></span>
         <span class="valor">agora</span>
       </div>
@@ -64,6 +65,23 @@
   </p>
 
 </main>
+
+<script>
+/* Vindo do cadastro, a tela lembra de abrir o link de confirmação. */
+(function () {
+  var email = new URLSearchParams(location.search).get("confirmar");
+  if (!email) return;
+  var r = document.getElementById("recado-confirmar");
+  r.hidden = false;
+  r.textContent = "Mandamos um link para " + email + ". Abra para confirmar o e-mail: " +
+    "sem isso não dá para entrar, mesmo depois de a equipe liberar. Se não chegar, " +
+    "confira a caixa de spam.";
+  var barra = document.querySelector("[data-passo1]");
+  barra.style.width = "0%";
+  barra.parentNode.classList.remove("barra-verde");
+  document.querySelector("[data-passo1-valor]").textContent = "você";
+})();
+</script>
 
 <footer class="rodape">
   <a href="inicio.html">Sobre a plataforma</a> ·

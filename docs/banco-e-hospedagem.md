@@ -1,301 +1,291 @@
-# Banco de dados e hospedagem da Bionalya
+# Banco, login, e-mail e hospedagem da Bionalya
 
-Este documento explica onde a Bionalya guarda as informações, por que elas se perdiam
-na hospedagem, o que foi mudado para isso parar de acontecer, o que é grátis, o que é
-pago e o que tem prazo. No fim tem o passo a passo para rodar e para publicar.
-
-Resolve a [issue #22 — Banco que não some no reinício](https://github.com/nimsayrosie/Bionalya-Plataform/issues/22).
+Onde a Bionalya guarda as informações, quem cuida do login, como os e-mails saem, o que
+é grátis e o que tem prazo. No fim tem o passo a passo para rodar e para publicar.
 
 ---
 
 ## 1. Em uma frase
 
-Antes, toda vez que o servidor na internet reiniciava ou dormia, a plataforma voltava do
-zero. Agora as informações ficam num banco PostgreSQL grátis e sem prazo (no **Neon**),
-e nada se perde. Na sua máquina continua tudo como era.
+O site roda no **Render** (grátis), o banco e o login ficam no **Supabase** (grátis) e
+os e-mails saem por uma **conta Gmail do projeto** (grátis). Nada disso pede cartão.
 
 ---
 
-## 2. O banco é seu — então o que se paga?
-
-O banco **é seu**. O PostgreSQL é um programa livre e gratuito, e o código e os dados são
-do projeto. O que pode custar dinheiro não é o banco: é **o computador onde ele fica
-ligado**.
-
-| Onde a plataforma roda | Onde fica o banco | Custa? | Tem prazo? |
-|---|---|---|---|
-| **Na sua máquina** | o arquivo `plataforma/bionalya.db` (SQLite), no seu disco | não | não |
-| **Na internet** (link para a banca, para outras pessoas) | um computador de alguma empresa, ligado 24 horas | depende da empresa | depende da empresa |
-
-Na sua máquina nada se perde nunca, mas a plataforma só existe enquanto o seu computador
-está ligado e só você acessa. Para ter um link público, alguém precisa deixar um
-computador ligado por você — e cada empresa tem uma regra.
-
----
-
-## 3. As peças da hospedagem
-
-A plataforma na internet tem **duas peças**, em dois serviços diferentes:
+## 2. As peças
 
 ```
-            pessoa no navegador
-                     │
-                     ▼
-   ┌───────────────────────────────────┐
-   │ RENDER — o servidor (grátis)      │   roda a API e as telas
-   │ disco APAGADO a cada reinício,    │
-   │ atualização ou cochilo            │
-   └───────────────┬───────────────────┘
-                   │ DATABASE_URL
-                   ▼
-   ┌───────────────────────────────────┐
-   │ NEON — o banco Postgres (grátis)  │   guarda tudo
-   │ não apaga, não tem prazo          │
-   └───────────────────────────────────┘
+                 pessoa no navegador
+                          │  só fala com a nossa API
+                          ▼
+   ┌───────────────────────────────────────────┐
+   │ RENDER — API e telas (grátis)             │
+   │ disco APAGADO a cada reinício ou cochilo  │
+   └──────┬───────────────────────┬────────────┘
+          │ DATABASE_URL          │ SUPABASE_URL + chaves
+          ▼                       ▼
+   ┌───────────────────────────────────────────┐
+   │ SUPABASE (grátis)                         │
+   │  · Postgres: usuários, bases, modelos,    │
+   │    avisos, cópia dos CSVs e .joblib       │
+   │  · Auth: e-mail, senha, confirmação,      │
+   │    link de senha nova, token de sessão    │──┐
+   └───────────────────────────────────────────┘  │ SMTP
+                                                  ▼
+                                   ┌──────────────────────────┐
+                                   │ GMAIL do projeto         │
+                                   │ (senha de app)           │──► caixa de entrada
+                                   └──────────────────────────┘
+                     a API também manda por ele os avisos de
+                     "acesso liberado" e "acesso recusado"
 ```
 
-### Peça 1 — o servidor, no Render (grátis, sem prazo)
+As telas nunca falam com o Supabase direto: tudo passa pela API. As chaves do Supabase
+e a senha do Gmail ficam só no servidor.
+
+### Render — o servidor
 
 - 750 horas por mês, o suficiente para ficar ligado o mês inteiro.
-- **Dorme depois de 15 minutos** sem ninguém acessar. A primeira visita depois disso leva
-  cerca de 1 minuto para acordar.
-- **O disco é apagado** a cada reinício, a cada atualização (deploy) **e a cada vez que
-  ele dorme**. No plano grátis não dá para contratar um disco permanente.
+- **Dorme depois de 15 minutos** sem acesso. A primeira visita depois disso leva cerca
+  de 1 minuto.
+- **O disco é apagado** a cada reinício, atualização e cochilo. Por isso nada fica
+  guardado nele: o banco está no Supabase e os arquivos (CSVs enviados, modelos
+  treinados) têm uma cópia no banco, que a API recria no disco quando sobe
+  (`plataforma/api/arquivos.py`).
 
-Esse último ponto era o problema: com o banco no disco, a plataforma se apagava sozinha
-várias vezes por dia.
+### Supabase — banco e login
 
-### Peça 2 — o banco, no Neon (grátis, sem prazo)
+- Plano grátis permanente, sem cartão. Até **2 projetos**.
+- **500 MB** de banco. Usuários e modelos ocupam pouco; o que pesa são os CSVs enviados.
+- **Pausa o projeto depois de 7 dias sem uso.** Pausado, o banco e o login param e o
+  site inteiro fica fora do ar até alguém clicar em *Restore* no painel. Para isso não
+  acontecer, o GitHub Actions abre `/saude` duas vezes por semana
+  (`.github/workflows/manter-acordado.yml`), e essa visita faz uma consulta ao banco.
+- **Sem backup no plano grátis.** Ver seção 8.
 
-- Plano grátis **permanente**, não é teste. Não pede cartão de crédito.
-- **1 GB** de espaço por projeto.
-- Não apaga projeto parado. Quando ninguém usa, ele "cochila" depois de 5 minutos e
-  acorda na próxima consulta em menos de um segundo.
+### Gmail — os e-mails
 
-### Por que não o banco do próprio Render
+O Supabase tem um envio de e-mail de teste, mas ele só entrega para quem é da equipe do
+projeto no Supabase, e poucos por hora. Para chegar a qualquer pessoa é preciso um SMTP
+próprio. Sem domínio próprio, o caminho grátis que entrega bem é o Gmail:
 
-O Render também oferece um Postgres grátis, mas ele **expira 30 dias depois de criado**.
-Depois disso dá 14 dias para começar a pagar; se ninguém pagar, **o Render apaga o banco
-com todos os dados**. Não faz backup e só permite um por conta. Por isso não é usado.
+- uma conta Gmail só do projeto, com verificação em duas etapas e uma **senha de app**;
+- até cerca de **500 e-mails por dia**;
+- sai pelos servidores do Google, assinado pelo próprio Gmail: cai na caixa de entrada,
+  não no spam.
 
-### Comparação
+Serviços como Resend e SendGrid pedem domínio próprio para mandar a qualquer pessoa, por
+isso não foram usados.
 
-| Opção | Custo | Prazo | Espaço |
+### O que custa
+
+| Peça | Onde | Custo | Prazo |
 |---|---|---|---|
-| SQLite na sua máquina | grátis | nenhum | o do seu disco |
-| **Neon grátis (o escolhido)** | **grátis, sem cartão** | **nenhum** | **1 GB** |
-| Postgres grátis do Render | grátis | **apagado em 30 + 14 dias** | 1 GB |
-| Postgres pago do Render | cerca de US$ 7/mês + US$ 0,30 por GB (valor de fonte secundária, conferir no site) | nenhum | a contratar |
+| API e telas | Render, plano grátis | nenhum | nenhum |
+| Banco e login | Supabase, plano grátis | nenhum | pausa com 7 dias parado (o ping evita) |
+| E-mail | Gmail do projeto | nenhum | nenhum |
+| Na sua máquina | `plataforma/bionalya.db` (SQLite) | nenhum | nenhum |
 
-Valores conferidos em novembro de 2026 em
-[render.com/docs/free](https://render.com/docs/free) e
-[neon.com/pricing](https://neon.com/pricing). Planos grátis mudam; vale olhar de novo
-antes de depender deles.
-
-**O que você precisa pagar: nada.** Render grátis + Neon grátis.
+Planos grátis mudam: os números foram conferidos em novembro de 2026.
 
 ---
 
-## 4. O que a plataforma guarda
+## 3. Como o login funciona
 
-| Informação | Onde fica | Antes, na hospedagem | Agora |
-|---|---|---|---|
-| Usuários, papéis e senhas (só o hash) | tabela `usuarios` | perdia | fica salvo |
-| Logins abertos | tabela `sessoes` | perdia (todo mundo deslogado) | fica salvo |
-| Bases cadastradas e o termo que a pessoa aceitou | tabela `bases` | perdia | fica salvo |
-| Antibióticos, nome em português, modelo padrão | tabela `antibioticos` | perdia | fica salvo |
-| Avisos para a equipe | tabela `notificacoes` | perdia | fica salvo |
-| CSVs que as pessoas enviam (`dados/enviadas/`) | disco + cópia na tabela `arquivos` | perdia | fica salvo |
-| Modelos que as pessoas treinam (`plataforma/modelos/<base>/`) | disco + cópia na tabela `arquivos` | perdia | fica salvo |
-| Base de fábrica e os 6 modelos iniciais | no repositório | já vinha no deploy | igual |
+| Momento | O que acontece |
+|---|---|
+| **Cadastro** | A API cria a conta no Supabase, que manda o e-mail de confirmação. O pedido de acesso fica em análise na tabela `usuarios`. |
+| **Confirmação** | O link abre `confirmar-email.html`; um clique confirma. O link usa `token_hash` e só é gasto no clique: o antivírus do e-mail, que abre todo link para conferir, não estraga nada. |
+| **Análise** | A equipe libera ou recusa em `equipe.html`. A pessoa recebe um e-mail com a decisão. |
+| **Login** | Precisa das duas coisas: e-mail confirmado e acesso liberado. |
+| **Sessão** | O token do Supabase vale 1 hora. Quando vence, as telas trocam sozinhas o `refresh_token` por um novo (`app.js`). |
+| **Esqueci a senha** | `esqueci-senha.html` → e-mail com link → `redefinir-senha.html`. Salvar a senha nova derruba as outras sessões. Se o e-mail não sair, o pedido vira aviso para a equipe, e um admin gera uma senha em *Usuários*. |
+| **Senha definida por outra pessoa** | Quem entra com senha que o admin gerou (ou com que criou a conta) vê um pop-up obrigatório para trocar. A API recusa as outras rotas até a troca. |
+| **Desativar ou recusar** | Corta o acesso na hora: toda rota confere o status na tabela `usuarios`. |
 
-**Atenção ao espaço:** os CSVs enviados ocupam o 1 GB do Neon. Cada um pode ter até
-120 MB (`MAX_MB_BASE` em `config.py`), e cada pesquisador pode ter até 3 bases
-(`MAX_BASES_POR_PESQUISADOR`). Na prática cabem algumas bases grandes; se o espaço
-apertar, dá para baixar esses limites.
+O que fica onde:
 
----
+| Informação | Onde |
+|---|---|
+| E-mail e senha (hash bcrypt) | Supabase Auth |
+| Nome, instituição, vínculo, finalidade, papel, status | tabela `usuarios` (coluna `auth_id` liga as duas) |
+| Bases, antibióticos, avisos, cópia dos arquivos | tabelas `bases`, `antibioticos`, `notificacoes`, `arquivos` |
 
-## 5. O que foi mudado no código
-
-### `plataforma/api/config.py` — onde está o banco
-
-Nova função `url_banco()`:
-
-- Se existir a variável de ambiente **`DATABASE_URL`**, o banco é o Postgres dela.
-- Se não existir, é o SQLite de sempre, `plataforma/bionalya.db`.
-
-Ela também reescreve `postgres://` e `postgresql://` para `postgresql+psycopg://`, que é
-o formato que o SQLAlchemy precisa para usar o driver instalado (psycopg 3). Assim dá
-para colar a URL do Neon exatamente como ele entrega.
-
-### `plataforma/api/banco.py` — funcionar nos dois bancos
-
-- A conexão é criada por `_criar_motor()`. No Postgres usa `pool_pre_ping` (testa a
-  conexão antes de usar; o Neon fecha conexão parada quando cochila) e `pool_recycle`.
-- A migração automática (`migrar()`) usava um comando que só existe no SQLite
-  (`PRAGMA table_info`). Agora usa o `inspect` do SQLAlchemy, que funciona nos dois.
-  Continua só **acrescentando** colunas que faltam, sem apagar nada.
-- As datas passaram a ser `DateTime(timezone=True)`: no Postgres ficam gravadas com fuso
-  (UTC). No SQLite não muda nada.
-- Tabela nova, **`arquivos`**: caminho do arquivo, conteúdo (bytes), tamanho e data.
-
-### `plataforma/api/arquivos.py` — novo: cópia dos arquivos no banco
-
-O banco guarda as informações, mas os CSVs e os modelos treinados são **arquivos**, e o
-disco do Render é apagado. Este módulo resolve isso sem precisar de outro serviço:
-
-1. **Quando a plataforma grava** um CSV enviado ou um modelo treinado, o arquivo vai
-   também para a tabela `arquivos` (`guardar`).
-2. **Quando uma base é removida**, as cópias dela e dos modelos dela saem do banco
-   (`apagar`, `apagar_pasta`).
-3. **Quando a API sobe**, antes de qualquer outra coisa, recria no disco o que está no
-   banco e falta no disco (`restaurar`).
-
-O resto do código continua lendo do disco, como sempre.
-
-Liga e desliga sozinho: **ligado com Postgres, desligado com SQLite** (na sua máquina o
-disco já é permanente, e copiar CSV para dentro do `bionalya.db` só dobraria o espaço).
-Para forçar, `BIONALYA_ARQUIVOS_NO_BANCO=1` liga e `=0` desliga.
-
-### `plataforma/api/main.py` — os pontos que avisam o módulo
-
-- Na partida: `arquivos.restaurar()` antes de semear os antibióticos.
-- No envio de base (`POST /api/bases`): `arquivos.guardar(...)` do CSV.
-- No treino (`POST /api/antibioticos/treinar`): `arquivos.guardar(...)` do `.joblib` e
-  do `.json`.
-- Na remoção de base (`DELETE /api/bases/{id}`): apaga as cópias do CSV e dos modelos.
-
-### `plataforma/requirements.txt`
-
-Acrescentado `psycopg[binary]==3.3.6`, o driver do PostgreSQL. O `[binary]` já traz
-tudo junto; não precisa instalar nada no sistema.
-
-### `plataforma/Dockerfile`
-
-O comando de partida ganhou um `exec`. Antes, o `sh` ficava entre a hospedagem e o
-uvicorn e não repassava o aviso de parada (SIGTERM): a hospedagem esperava e acabava
-matando o processo à força. Agora o uvicorn recebe o aviso e desliga sozinho, em menos
-de meio segundo (testado). Não perdia dado, mas cada reinício ficava mais lento.
-
-### `render.yaml`
-
-- `DATABASE_URL` com `sync: false`: o Render **pede o valor** na hora de criar o
-  serviço. Ele não fica escrito no arquivo porque contém a senha do banco.
-- Nenhum banco do Render é criado (ver seção 3).
+**API REST do Supabase fechada.** O Supabase publica toda tabela do schema `public`
+numa API REST, e a chave pública dela não é segredo. A API da Bionalya liga o RLS em
+todas as tabelas, sem nenhuma política, na partida: a API REST não vê nada, e a nossa
+API continua lendo tudo, porque conecta como dona das tabelas.
 
 ---
 
-## 6. Como foi testado
-
-Tudo rodado de verdade, num Postgres 17 em container e com a imagem Docker do projeto.
-
-**Simulação do disco descartável** — três rodadas; entre elas a cópia do servidor era
-apagada e recriada do zero, e só o banco ficava:
-
-| Rodada | O que foi verificado | Resultado |
-|---|---|---|
-| 1 | login do admin, criar usuária, enviar base, treinar ciprofloxacino, prever | ok |
-| 2 (disco novo) | CSV e modelo recriados no disco; login antigo ainda vale; usuária entra; base listada; download idêntico ao enviado; **mesma probabilidade** de antes; remover a base | ok |
-| 3 (disco novo) | o que foi removido **não** volta | ok |
-
-17 de 17 verificações passaram.
-
-**Imagem Docker** (a mesma que o Render roda): enviar base, treinar tetraciclina, parar o
-container, subir um container novo — os 3 arquivos foram recriados e a previsão
-respondeu.
-
-**SQLite na máquina**: a API sobe, cria o `bionalya.db` com as 6 tabelas e os 6
-antibióticos, e mantém tudo entre reinícios.
-
----
-
-## 7. Como rodar na sua máquina
-
-Nada muda: sem `DATABASE_URL`, usa o SQLite.
+## 4. Como rodar na sua máquina
 
 ```bash
 python -m venv .venv               # só na primeira vez
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r plataforma/requirements.txt
 cd plataforma
+cp .env.example .env               # e preencha (seção 6)
 python -m uvicorn api.main:app --reload
 ```
 
-Abra <http://127.0.0.1:8000>. Na primeira vez, o login de admin fica em
-`plataforma/PRIMEIRO-ACESSO.txt` (não vai para o GitHub).
+Sem `DATABASE_URL` no `.env`, o banco é o SQLite local (`plataforma/bionalya.db`). O
+login, esse, é sempre o do Supabase: sem `SUPABASE_URL` e as chaves, a API sobe, mas
+ninguém entra. Peça o `.env` para quem cuida da hospedagem.
 
-Para testar contra o Neon na sua máquina, é só definir a variável antes de subir:
+Na primeira vez, se `BIONALYA_ADMIN_SENHA` estiver vazia, a API sorteia a senha do admin
+e grava em `plataforma/PRIMEIRO-ACESSO.txt` (não vai para o GitHub). Se a conta de admin
+já existir no Supabase, a senha dela não é mexida.
+
+### Testes
 
 ```bash
-export DATABASE_URL='postgresql://usuario:senha@ep-xxxx.sa-east-1.aws.neon.tech/neondb?sslmode=require'
-python -m uvicorn api.main:app --reload
+pip install -r requirements-dev.txt
+python -m pytest
 ```
 
----
-
-## 8. Como publicar (Neon + Render)
-
-### 8.1 Criar o banco no Neon
-
-1. Entre em [neon.com](https://neon.com) e crie uma conta (dá para entrar com GitHub).
-   Não pede cartão.
-2. Crie um projeto. Nome: `bionalya`. Região: a mais próxima do servidor do Render
-   (o `render.yaml` usa **Oregon**, então escolha **US West (Oregon)**).
-3. No painel do projeto, clique em **Connect** e copie a *connection string*. Ela tem
-   esta cara:
-   ```
-   postgresql://neondb_owner:SENHA@ep-xxxx-xxxx.us-west-2.aws.neon.tech/neondb?sslmode=require
-   ```
-   **Guarde como senha.** Quem tem essa linha tem acesso ao banco inteiro.
-
-Não precisa criar tabela nenhuma: a API cria tudo sozinha na primeira vez que sobe.
-
-### 8.2 Ligar no Render
-
-- **Serviço novo:** em [dashboard.render.com](https://dashboard.render.com), *New →
-  Blueprint*, aponte para o repositório. O Render vai pedir o valor de `DATABASE_URL`:
-  cole a linha do Neon.
-- **Serviço que já existe:** abra o serviço → *Environment* → *Add Environment
-  Variable* → chave `DATABASE_URL`, valor a linha do Neon → *Save*. O Render reinicia
-  sozinho.
-
-No log do primeiro deploy deve aparecer `Admin criado a partir das variáveis de
-ambiente`. A senha do admin está em *Environment*, na variável `BIONALYA_ADMIN_SENHA`.
-
-### 8.3 Conferir
-
-Cadastre algo, espere o serviço dormir (15 minutos sem acesso) ou clique em
-*Manual Deploy → Restart*, e entre de novo: tem que estar tudo lá. Quando há arquivos
-para recriar, o log mostra `N arquivo(s) recriados a partir do banco.`
+Os testes usam um Supabase de mentira, em memória (`plataforma/testes/conftest.py`), e
+um SQLite temporário: não precisam de chave nem de internet. Cobrem cadastro,
+confirmação, aprovação, login, renovação de sessão, senha nova pelo link, troca
+obrigatória, desativação e a conferência do token. O GitHub roda os mesmos testes a
+cada push e pull request (`.github/workflows/testes.yml`).
 
 ---
 
-## 9. Variáveis de ambiente
+## 5. Como publicar
+
+### 5.1 A conta Gmail do projeto
+
+1. Crie uma conta Gmail só para a plataforma (por exemplo `bionalya.projeto@gmail.com`).
+2. Ative a **verificação em duas etapas**: <https://myaccount.google.com/security>.
+3. Gere uma **senha de app**: <https://myaccount.google.com/apppasswords>. Nome:
+   `Bionalya`. Ele mostra 16 letras; guarde, é a `SMTP_SENHA`.
+
+A senha de app só serve para mandar e-mail e pode ser apagada a qualquer momento na
+mesma página, sem mexer na senha da conta.
+
+### 5.2 O projeto no Supabase
+
+1. Entre em <https://supabase.com/dashboard> (dá para entrar com GitHub) e crie um
+   projeto. Nome `bionalya`; guarde a **senha do banco** que ele pede. Região: a mais
+   perto do Render. O `render.yaml` usa Oregon, então **West US (North California)**.
+2. **Chaves** — *Project Settings → API Keys*. Copie a chave pública (*publishable* ou
+   *anon*) e a secreta (*secret* ou *service_role*). E a URL do projeto,
+   `https://<ref>.supabase.co`.
+3. **Endereço do banco** — botão **Connect** no topo → *Session pooler*. Copie a linha
+   e troque `[YOUR-PASSWORD]` pela senha do banco. Use o *Session pooler* (porta 5432):
+   a conexão direta é só IPv6, e o Render não sai por IPv6.
+
+Não precisa criar tabela nenhuma: a API cria tudo na primeira vez que sobe.
+
+### 5.3 Configurar o login (um comando)
+
+Na sua máquina, com o `.env` preenchido (incluindo o Gmail e um **token pessoal** do
+Supabase, gerado em <https://supabase.com/dashboard/account/tokens>):
+
+```bash
+cd plataforma
+python supabase/configurar.py            # mostra o que vai mudar
+python supabase/configurar.py --aplicar  # muda
+```
+
+Ele ajusta, em *Authentication*:
+
+- endereço do site e endereços para onde os links podem voltar;
+- confirmação de e-mail ligada, senha com pelo menos 8 caracteres, link válido por 1 hora;
+- SMTP do Gmail, com limite de 30 e-mails por hora no projeto e 1 por minuto por pessoa;
+- os modelos de e-mail em português (`plataforma/supabase/emails/`).
+
+**Sem o script, pelo painel:** *Authentication → URL Configuration* (Site URL e
+Redirect URLs), *Authentication → Emails → SMTP Settings* (host `smtp.gmail.com`,
+porta `587`, usuário o Gmail completo, senha a senha de app), e *Authentication →
+Emails → Templates*: em *Confirm signup* e *Reset password*, cole o HTML de
+`plataforma/supabase/emails/confirmacao.html` e `recuperacao.html`. Os modelos padrão
+do Supabase também funcionam (as telas entendem os dois formatos de link), mas vêm em
+inglês.
+
+### 5.4 Ligar no Render
+
+Em *Environment* do serviço (ou, num serviço novo pelo *Blueprint*, quando o Render
+pedir):
+
+| Variável | Valor |
+|---|---|
+| `DATABASE_URL` | a linha do Session pooler |
+| `SUPABASE_URL` | `https://<ref>.supabase.co` |
+| `SUPABASE_ANON_KEY` | a chave pública |
+| `SUPABASE_SERVICE_KEY` | a chave secreta |
+| `SITE_URL` | `https://bionalya-uvqh.onrender.com` (já vem no `render.yaml`) |
+| `SMTP_HOST` / `SMTP_PORTA` | `smtp.gmail.com` / `587` (já vêm no `render.yaml`) |
+| `SMTP_USUARIO` | o Gmail do projeto |
+| `SMTP_SENHA` | a senha de app |
+| `BIONALYA_ADMIN_EMAIL` | um e-mail que exista: é para ele que vai o link de senha nova |
+
+O Render reinicia sozinho. Se faltar alguma variável do Supabase, o log da partida
+avisa com uma linha `AVISO:`.
+
+### 5.5 Conferir
+
+1. Abra `https://bionalya-uvqh.onrender.com/saude`: tem que mostrar `"banco": true`,
+   `"login": true` e `"email": true`.
+2. Cadastre-se com um e-mail seu, confirme pelo link, libere pela conta de admin e
+   entre. Chegam dois e-mails: a confirmação e o "acesso liberado".
+3. Em *Esqueci minha senha*, peça o link e defina uma senha nova.
+4. No GitHub, aba *Actions* → *Manter acordado* → *Run workflow*: tem que ficar verde.
+
+---
+
+## 6. Variáveis de ambiente
 
 | Variável | Para quê |
 |---|---|
-| `DATABASE_URL` | o Postgres (Neon). Sem ela, usa o `bionalya.db` local |
-| `BIONALYA_ARQUIVOS_NO_BANCO` | `1`/`0` força ligar/desligar a cópia dos arquivos no banco. Padrão: ligada com Postgres, desligada com SQLite |
-| `BIONALYA_ADMIN_EMAIL` | e-mail da conta de admin |
-| `BIONALYA_ADMIN_SENHA` | senha dela. Em branco = sorteada e gravada em `PRIMEIRO-ACESSO.txt` |
+| `DATABASE_URL` | o Postgres do Supabase (Session pooler). Sem ela, `bionalya.db` local |
+| `SUPABASE_URL` | `https://<ref>.supabase.co` |
+| `SUPABASE_ANON_KEY` | chave pública do projeto |
+| `SUPABASE_SERVICE_KEY` | chave secreta. Cria as contas de admin, demonstração e as que o admin cria, e troca senha pelo admin |
+| `SUPABASE_JWT_SECRET` | só para projeto antigo, com JWT por segredo. Projeto novo não precisa |
+| `SITE_URL` | endereço público; vai nos links dos e-mails |
+| `SMTP_HOST`, `SMTP_PORTA`, `SMTP_USUARIO`, `SMTP_SENHA` | Gmail. Sem eles, a plataforma funciona, só não manda o aviso de acesso liberado/recusado |
+| `SMTP_REMETENTE`, `SMTP_NOME` | opcionais. Padrão: o próprio Gmail e "Bionalya" |
+| `BIONALYA_ADMIN_EMAIL` / `_SENHA` | conta de admin. Senha em branco = sorteada e gravada em `PRIMEIRO-ACESSO.txt` |
 | `BIONALYA_DEMO_EMAIL` / `_SENHA` / `_NOME` | conta aberta de demonstração (opcional) |
+| `BIONALYA_ARQUIVOS_NO_BANCO` | `1`/`0` força ligar/desligar a cópia dos arquivos no banco. Padrão: ligada com Postgres |
+| `SUPABASE_ACCESS_TOKEN` | só para `supabase/configurar.py`, na sua máquina. **Nunca no Render** |
 
-Com o banco persistente, a conta de admin só é criada **uma vez**. Se depois você trocar
-a senha pela tela *Minha conta*, vale a nova — mudar `BIONALYA_ADMIN_SENHA` no painel
-não altera uma conta que já existe.
+A conta de admin só é criada **uma vez**. Se depois a senha for trocada pela tela
+*Minha conta*, vale a nova: mudar `BIONALYA_ADMIN_SENHA` no painel não mexe numa conta
+que já existe.
 
 ---
 
-## 10. Limites e cuidados
+## 7. Segurança e LGPD
 
-- **1 GB no Neon.** Usuários e modelos ocupam pouco; o que pesa são os CSVs enviados.
-- **Sem backup automático no plano grátis.** Para uma cópia de segurança, rode na sua
-  máquina (precisa do `pg_dump` instalado):
-  `pg_dump "$DATABASE_URL" > backup-bionalya.sql`
-- **A connection string é segredo.** Não coloque no `render.yaml`, no README nem em
-  commit.
-- **Migração automática só acrescenta coluna.** Remover coluna ou mudar tipo pede uma
-  migração de verdade (Alembic).
-- **Planos grátis mudam.** Os números deste documento foram conferidos em novembro de
-  2026.
+- A **chave secreta**, a **senha do banco** e a **senha de app** do Gmail só no painel
+  do Render e no `.env` local. Nunca no `render.yaml`, no README ou num commit.
+- O **token pessoal** do Supabase dá acesso a todos os projetos da conta: só na sua
+  máquina, e dá para apagar depois de configurar.
+- Os dados ficam em servidores do Supabase nos Estados Unidos. Sob a LGPD isso é
+  transferência internacional de dado pessoal (nome, e-mail, instituição), e entra na
+  definição pendente de base legal e prazo de retenção. Para os dados ficarem no Brasil,
+  o projeto do Supabase pode ser criado em **South America (São Paulo)**, ao custo de
+  respostas mais lentas, porque o Render fica nos EUA.
+
+---
+
+## 8. Limites e cuidados
+
+- **500 MB de banco.** Cada CSV enviado pode ter até 120 MB (`MAX_MB_BASE`) e cada
+  pesquisador até 3 bases (`MAX_BASES_POR_PESQUISADOR`). Se apertar, baixe os limites.
+- **Pausa com 7 dias parado.** O ping do GitHub evita. O GitHub desliga workflows
+  agendados em repositório sem commit há 60 dias; se isso acontecer, a aba *Actions*
+  tem um botão para religar.
+- **Sem backup automático.** Para uma cópia, na sua máquina (precisa do `pg_dump`):
+  `pg_dump "$DATABASE_URL" > backup-bionalya.sql`. O arquivo tem os dados de todo
+  mundo: trate com o mesmo cuidado. As contas do login ficam no schema `auth`, que o
+  `pg_dump` também leva.
+- **E-mail:** cerca de 500 por dia pelo Gmail, e o limite configurado no Supabase é de
+  30 e-mails de login por hora.
+- **Migração automática só acrescenta coluna.** A única exceção é a troca para o
+  Supabase: um banco com o login antigo (coluna `senha_hash`) tem `usuarios` e `sessoes`
+  recriadas do zero na partida, porque o Supabase não importa senha em PBKDF2. Bases,
+  modelos e avisos ficam.

@@ -101,8 +101,10 @@
     <div>
       <strong>O que a plataforma guarda sobre você</strong>
       <p>Nome, e-mail, instituição, vínculo e a finalidade que você declarou, usados só
-         para liberar e identificar seu acesso. A senha é guardada como hash — ninguém,
-         nem a equipe, consegue lê-la. Para remover sua conta, peça a quem é admin.</p>
+         para liberar e identificar seu acesso. A senha fica com o serviço de login
+         (Supabase), guardada como hash — ninguém, nem a equipe, consegue lê-la. Os
+         dados ficam em servidores do Supabase, fora do Brasil. Para remover sua conta,
+         peça a quem é admin.</p>
     </div>
   </div>
 
@@ -144,6 +146,9 @@ document.addEventListener("DOMContentLoaded", function () {
     Bio.api("/api/eu/senha", { method: "POST", corpo: {
       senha_atual: document.getElementById("atual").value, senha_nova: nova
     }}).then(function (r) {
+      // A troca encerra todas as outras sessões, inclusive a antiga desta
+      // aba: a resposta traz a sessão nova.
+      Bio.entrarComSessao(r);
       Bio.ocupado(btn, false);
       form.reset();
       document.getElementById("aviso-senha").hidden = true;

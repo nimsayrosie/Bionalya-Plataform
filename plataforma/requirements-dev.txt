@@ -1,0 +1,4 @@
+# Para rodar os testes:  pip install -r requirements-dev.txt
+#                        python -m pytest
+-r requirements.txt
+pytest==8.4.2
