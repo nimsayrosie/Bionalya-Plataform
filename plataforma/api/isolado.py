@@ -32,6 +32,18 @@ class ArquivoInvalido(ValueError):
 
 
 def _texto(conteudo: bytes) -> str:
+    # UTF-16 é o que o Excel grava em "Texto Unicode": tem marca no começo.
+    if conteudo[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        try:
+            return conteudo.decode("utf-16")
+        except UnicodeDecodeError:
+            pass
+    # Byte zero não existe em texto: é planilha (.xlsx), compactado ou imagem.
+    # Sem esta conferência o latin-1 "lia" qualquer coisa e virava lixo.
+    if b"\x00" in conteudo[:4096]:
+        raise ArquivoInvalido(
+            "Esse arquivo não é texto. Salve como CSV ou TSV (ou envie a saída do "
+            "AMRFinderPlus) e tente de novo.")
     for cod in ("utf-8-sig", "latin-1"):
         try:
             return conteudo.decode(cod)
@@ -59,7 +71,12 @@ def ler(conteudo: bytes, nome_arquivo: str = "") -> dict:
 
     primeira = texto.splitlines()[0]
     sep = "\t" if primeira.count("\t") > primeira.count(",") else ","
-    linhas = list(csv.reader(io.StringIO(texto), delimiter=sep))
+    try:
+        linhas = list(csv.reader(io.StringIO(texto), delimiter=sep))
+    except csv.Error as e:
+        raise ArquivoInvalido(
+            "O arquivo tem um campo mal formado (aspas sem fechar, por exemplo). "
+            "Confira se é o CSV do NCBI como foi baixado.") from e
     cabecalho = [c.strip() for c in linhas[0]] if linhas else []
 
     col_ncbi = _coluna(cabecalho, "amr", "genotype")
@@ -125,9 +142,10 @@ def _amrfinder(linhas, cabecalho, col) -> dict:
 
 
 def _lista(texto: str) -> dict:
-    pedacos = re.split(r"[,;\n\r\t]+", texto)
-    genes = sorted({p.strip().split("=")[0].strip() for p in pedacos
-                    if _GENE.match(p.strip().split("=")[0].strip())})
+    # Mesma regra de nome de gene que o treino usa (treino.extrair_genes): se
+    # ela mudar lá, a lista enviada continua batendo com os genes do modelo.
+    genes = [g for g in treino.extrair_genes(re.sub(r"[;\n\r\t]+", ",", texto))
+             if _GENE.match(g)]
     if not genes:
         raise ArquivoInvalido(
             "Não reconheci o arquivo. Envie o CSV do NCBI Pathogen Detection, a "

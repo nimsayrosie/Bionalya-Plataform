@@ -95,12 +95,14 @@ RETENCAO_ANALISES_DIAS = 90
 RETENCAO_CONTA_DESATIVADA_DIAS = 365
 # Texto do consentimento pedido no cadastro. A versão fica gravada junto.
 CONSENTIMENTO_VERSAO = "2026-11"
+# Montado a partir do prazo acima: o texto aceito nunca contradiz o que a
+# plataforma faz. Mudou o prazo? Suba também CONSENTIMENTO_VERSAO.
 CONSENTIMENTO = (
     "Autorizo a Bionalya a guardar meu nome, e-mail, instituição, vínculo e a "
     "finalidade que declarei, só para liberar e identificar meu acesso, e o "
-    "histórico das minhas análises por 90 dias. Sei que esses dados ficam em "
-    "servidores do Supabase, nos Estados Unidos, e que posso pedir para apagar "
-    "minha conta a qualquer momento."
+    f"histórico das minhas análises por {RETENCAO_ANALISES_DIAS} dias. Sei que "
+    "esses dados ficam em servidores do Supabase, nos Estados Unidos, e que posso "
+    "pedir para apagar minha conta a qualquer momento."
 )
 
 # Envio do arquivo de um isolado na Nova análise: lido em memória, nunca
