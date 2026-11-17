@@ -255,8 +255,8 @@ O que é grátis, o que tem prazo e o passo a passo estão em
   sobrevivem ao reinício, mas os CSVs enviados ocupam esse espaço. Detalhes em
   [`docs/banco-e-hospedagem.md`](docs/banco-e-hospedagem.md).
 - **Dados pessoais.** Base legal, prazos de retenção e direitos de quem usa estão em
-  [`docs/requisitos-lgpd.md`](docs/requisitos-lgpd.md), com o RNF10 reescrito. Falta a
-  equipe definir quem é o encarregado (art. 41 da LGPD).
+  [`docs/requisitos-lgpd.md`](docs/requisitos-lgpd.md), com o RNF10 reescrito. Pedidos
+  sobre dados vão para `bioanalya@gmail.com`.
 
 ## Licença
 

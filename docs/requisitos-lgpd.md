@@ -61,7 +61,7 @@ lentas, porque o servidor do site (Render) fica nos EUA.
 |---|---|
 | Confirmação e acesso | tela **Minha conta**: dados do cadastro e histórico de análises |
 | Correção | pede à equipe; nome, e-mail e instituição não são editáveis pela própria pessoa porque sustentam a conferência de vínculo |
-| Eliminação | o histórico, pela própria tela (uma análise ou tudo); a conta, pedindo ao admin, que apaga em até 15 dias pela tela Usuários |
+| Eliminação | o histórico, pela própria tela (uma análise ou tudo); a conta, pedindo por `bioanalya@gmail.com`, apagada em até 15 dias pela tela Usuários |
 | Informação sobre compartilhamento | este documento e o texto do consentimento: Supabase (banco e login), Google (e-mail), Render (servidor) |
 | Revogação do consentimento | pedir a eliminação da conta |
 
@@ -79,12 +79,13 @@ lentas, porque o servidor do site (Render) fica nos EUA.
 | Leitura do arquivo do isolado sem gravar | `plataforma/api/isolado.py` |
 | Testes | `plataforma/testes/test_lgpd_e_analises.py` |
 
-## O que ainda depende da equipe
+## Contato para pedidos sobre dados
 
-- **Encarregado (art. 41).** Definir quem responde pelos dados (pode ser o orientador
-  ou alguém da equipe) e pôr o contato na página inicial.
-- **Pedidos de correção e eliminação.** Combinar quem da equipe acompanha o e-mail
-  `bioanalya@gmail.com` para cumprir os 15 dias.
+Pedidos de acesso, correção ou eliminação de dados vão para `bioanalya@gmail.com`.
+Quem acompanha esse e-mail e responde dentro dos 15 dias é **Gabriel Medeiros de Souza**.
+
+## Cuidados
+
 - **Backup.** Não existe backup automático no plano grátis. Se alguém fizer um com
   `pg_dump`, o arquivo tem os mesmos dados pessoais e precisa do mesmo cuidado
   (guardar em lugar restrito e apagar dentro dos mesmos prazos).
