@@ -1020,3 +1020,17 @@ td.dado {
   font-size: var(--t-sm);
   text-align: center;
 }
+.dialogo .dialogo-lista {
+  margin: var(--esp-2) 0 0;
+  padding-left: 1.25rem;
+  font-size: var(--t-sm);
+}
+.dialogo .dialogo-lista li + li { margin-top: 0.25rem; }
+.dialogo .recado { margin-top: var(--esp-2); }
+.dialogo .dialogo-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--esp-1);
+  margin-top: var(--esp-3);
+}

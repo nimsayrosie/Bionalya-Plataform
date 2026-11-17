@@ -158,8 +158,18 @@ apagava a cada reinício.
 | **admin** | tudo acima + mudar papéis e ativar/desativar contas |
 
 São cumulativos: quem é admin pode tudo que a equipe pode. Promover alguém já libera o
-acesso dessa pessoa. Desativar uma conta corta o acesso dela na hora. A
-plataforma impede que você rebaixe ou desative a si mesmo, e que o sistema fique sem
+acesso dessa pessoa.
+
+Mudar o papel não é mais imediato: a tela abre uma janela com o papel atual, o novo e o
+que a pessoa passa a poder fazer. **Promover a equipe ou admin pede a senha de quem está
+promovendo**, conferida no Supabase, e toda mudança de papel vira um aviso para a equipe,
+com quem fez. Rebaixar só pede a confirmação.
+
+**Desativar** corta o acesso na hora e pode ser desfeito. **Apagar** pede confirmação e
+tira a conta do login (Supabase), da tabela `usuarios` e dos avisos que ela gerou; não
+dá para desfazer. As bases que a pessoa enviou ficam na plataforma, marcadas como
+`(conta apagada)`: ninguém é dono delas, e só a equipe pode treinar com elas ou removê-las. A
+plataforma impede que você rebaixe, desative ou apague a si mesmo, e que o sistema fique sem
 nenhum admin ativo.
 
 ## Como está organizado
@@ -467,9 +477,10 @@ POST   /api/antibioticos/{id}/padrao            dono da base ou equipe
 
 GET    /api/admin/usuarios                      admin
 POST   /api/admin/usuarios                      admin — cria acesso compartilhável
-POST   /api/admin/usuarios/{id}/papel           admin
+POST   /api/admin/usuarios/{id}/papel           admin — promover pede senha_admin
 POST   /api/admin/usuarios/{id}/ativo           admin
 POST   /api/admin/usuarios/{id}/senha           admin — gera senha nova para quem esqueceu
+DELETE /api/admin/usuarios/{id}                 admin — apaga a conta de vez
 ```
 
 As rotas que falam de um antibiótico usam a chave composta

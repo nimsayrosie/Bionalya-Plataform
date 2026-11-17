@@ -43,7 +43,8 @@
 
       <div class="campo">
         <label for="nome">Nome completo <span class="obrigatorio">*</span></label>
-        <input type="text" id="nome" name="nome" autocomplete="name" required>
+        <input type="text" id="nome" name="nome" autocomplete="name" required
+               minlength="3" maxlength="160">
       </div>
 
       <div class="campo">
@@ -59,6 +60,7 @@
       <div class="campo">
         <label for="instituicao">Instituição <span class="obrigatorio">*</span></label>
         <input type="text" id="instituicao" name="instituicao" required
+               minlength="2" maxlength="160"
                placeholder="Universidade, hospital ou laboratório">
       </div>
 
@@ -89,10 +91,12 @@
       <div class="campo">
         <label for="finalidade">Como pretende usar a plataforma <span class="obrigatorio">*</span></label>
         <textarea id="finalidade" name="finalidade" required
+                  minlength="10" maxlength="2000"
                   aria-describedby="ajuda-finalidade"
                   placeholder="Ex.: comparar modelos de previsão de resistência para um trabalho de conclusão de curso sobre Neisseria gonorrhoeae."></textarea>
         <span class="ajuda" id="ajuda-finalidade">
-          Duas ou três linhas bastam. É o que a equipe lê para liberar o acesso.
+          Duas ou três linhas bastam (pelo menos 10 caracteres). É o que a equipe
+          lê para liberar o acesso.
         </span>
       </div>
 
@@ -148,6 +152,19 @@ document.addEventListener("DOMContentLoaded", function () {
   f.addEventListener("submit", function (ev) {
     ev.preventDefault();
     Bio.aviso("#recado", null);
+    // Os mesmos mínimos da API, avisados aqui antes de enviar.
+    var minimos = [
+      ["nome", 3, "Nome completo"], ["instituicao", 2, "Instituição"],
+      ["finalidade", 10, "Como pretende usar a plataforma"], ["senha", 8, "Senha"]
+    ];
+    for (var i = 0; i < minimos.length; i++) {
+      var campo = f[minimos[i][0]];
+      if (campo.value.trim().length < minimos[i][1]) {
+        campo.focus();
+        return Bio.aviso("#recado", minimos[i][2] + ": escreva pelo menos " +
+                         minimos[i][1] + " caracteres.");
+      }
+    }
     var vinculo = f.querySelector("input[name=vinculo]:checked");
     if (!vinculo) return Bio.aviso("#recado", "Escolha o seu vínculo.");
     if (!f.termos.checked) return Bio.aviso("#recado", "É preciso aceitar os termos.");

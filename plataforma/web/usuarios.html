@@ -134,9 +134,11 @@
       <strong>Os papéis são cumulativos</strong>
       <p>Quem é <strong>equipe</strong> pode tudo que um pesquisador pode, mais liberar
          cadastros e treinar modelos. Quem é <strong>admin</strong> pode tudo isso, mais
-         mexer nos papéis. Promover alguém já libera o acesso dessa pessoa, e desativar
-         uma conta derruba as sessões abertas dela na hora. A plataforma não deixa você
-         rebaixar ou desativar a si mesmo, nem ficar sem nenhum admin ativo.</p>
+         mexer nos papéis. Promover alguém a equipe ou admin pede a sua senha, e toda
+         mudança de papel vira um aviso para a equipe. Desativar corta o acesso na hora e
+         pode ser desfeito; apagar tira a conta do login e da lista de vez, e as bases que
+         a pessoa enviou ficam na plataforma, sem dono. A plataforma não deixa você
+         rebaixar, desativar ou apagar a si mesmo, nem ficar sem nenhum admin ativo.</p>
     </div>
   </div>
 
@@ -156,6 +158,21 @@ document.addEventListener("DOMContentLoaded", function () {
   var espera = null;
 
   var PAPEL = { pesquisador: "Pesquisador", equipe: "Equipe", admin: "Admin" };
+  var NIVEL = { pesquisador: 1, equipe: 2, admin: 3 };
+  // O que cada papel pode, para a janela de confirmação mostrar o que muda.
+  var PODE = {
+    pesquisador: ["Analisar isolados e ver os resultados",
+                  "Ver os modelos e explorar a base",
+                  "Enviar as próprias bases e treinar modelos com elas"],
+    equipe: ["Tudo que o pesquisador pode",
+             "Liberar ou recusar pedidos de acesso",
+             "Treinar modelos em qualquer base e escolher o modelo padrão",
+             "Ver os avisos da equipe"],
+    admin: ["Tudo que a equipe pode",
+            "Mudar o papel de qualquer pessoa, inclusive torná-la admin",
+            "Desativar, apagar contas e gerar senha nova",
+            "Criar contas já liberadas"]
+  };
   var VINCULO = {
     estudante: "Estudante", pesquisador: "Pesquisador",
     docente: "Docente", laboratorio: "Profissional de laboratório"
@@ -227,13 +244,33 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     sel.value = u.papel;
     sel.disabled = u.id === eu.id;
+    // Escolher na lista não muda nada sozinho: abre a janela de confirmação.
+    // Promover a equipe ou admin pede a senha de quem está promovendo.
     sel.addEventListener("change", function () {
-      sel.disabled = true;
-      Bio.api("/api/admin/usuarios/" + u.id + "/papel", {
-        method: "POST", corpo: { papel: sel.value }
-      }).then(function (r) {
-        Bio.aviso("#recado", u.nome + " agora é " + PAPEL[r.papel].toLowerCase() + ".", "ok");
-        carregar();
+      var novo = sel.value;
+      if (novo === u.papel) return;
+      var promocao = NIVEL[novo] > NIVEL[u.papel];
+      var pedeSenha = promocao && novo !== "pesquisador";
+      Bio.confirmar({
+        titulo: (promocao ? "Promover " : "Rebaixar ") + u.nome + "?",
+        texto: u.email + ": de " + PAPEL[u.papel].toLowerCase() + " para " +
+               PAPEL[novo].toLowerCase() + ". Com o papel novo, a pessoa pode:",
+        itens: PODE[novo],
+        aviso: novo === "admin"
+          ? "Admin tem controle total da plataforma, inclusive sobre a sua conta."
+          : null,
+        botao: promocao ? "Promover" : "Rebaixar",
+        perigo: novo === "admin",
+        senha: pedeSenha
+      }).then(function (resp) {
+        if (!resp) { sel.value = u.papel; return; }
+        sel.disabled = true;
+        return Bio.api("/api/admin/usuarios/" + u.id + "/papel", {
+          method: "POST", corpo: { papel: novo, senha_admin: resp.senha }
+        }).then(function (r) {
+          Bio.aviso("#recado", u.nome + " agora é " + PAPEL[r.papel].toLowerCase() + ".", "ok");
+          carregar();
+        });
       }).catch(function (e) {
         sel.disabled = false; sel.value = u.papel;
         Bio.aviso("#recado", e.message);
@@ -290,7 +327,45 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
-    acoes.append(rot, sel, btn, btnSenha);
+    // Apagar some com a conta de vez (login, cadastro e avisos). As bases que
+    // a pessoa enviou ficam, sem dono. Pede confirmação; o foco começa no
+    // Cancelar, para um Enter distraído não apagar ninguém.
+    var btnApagar = document.createElement("button");
+    btnApagar.type = "button";
+    btnApagar.className = "botao botao-mini botao-recusar";
+    btnApagar.textContent = "Apagar conta";
+    btnApagar.disabled = u.id === eu.id;
+    btnApagar.addEventListener("click", function () {
+      var nb = u.bases_enviadas || 0;
+      Bio.confirmar({
+        titulo: "Apagar a conta de " + u.nome + "?",
+        texto: u.email + " deixa de existir na plataforma. Não dá para desfazer.",
+        itens: [
+          "Sai do login: a pessoa não consegue mais entrar nem pedir senha nova",
+          "Sai da lista de usuários e dos pedidos de acesso",
+          "Os avisos que ela gerou para a equipe são apagados",
+          nb ? nb + (nb === 1 ? " base enviada por ela continua" : " bases enviadas por ela continuam") +
+               " na plataforma, sem dono"
+             : "Ela não enviou nenhuma base"
+        ],
+        aviso: "Se a pessoa quiser voltar, vai ter que se cadastrar de novo.",
+        botao: "Apagar para sempre",
+        perigo: true
+      }).then(function (resp) {
+        if (!resp) return;
+        Bio.ocupado(btnApagar, true, "Apagando…");
+        return Bio.api("/api/admin/usuarios/" + u.id, { method: "DELETE" })
+          .then(function (r) {
+            Bio.aviso("#recado", r.mensagem, "ok");
+            carregar();
+          });
+      }).catch(function (e) {
+        Bio.ocupado(btnApagar, false);
+        Bio.aviso("#recado", e.message);
+      });
+    });
+
+    acoes.append(rot, sel, btn, btnSenha, btnApagar);
     div.appendChild(acoes);
     return div;
   }

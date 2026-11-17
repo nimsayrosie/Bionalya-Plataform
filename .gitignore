@@ -24,3 +24,6 @@ dados/enviadas/
 !.env.example
 .neon
 node_modules/
+
+# Configuracao local do Claude Code
+.claude/

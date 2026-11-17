@@ -280,3 +280,71 @@ def test_conta_criada_direto_no_supabase_entra_em_analise(cliente, supabase):
     supabase.nova_conta("pulou@uni.br", "SenhaBoa123", {"nome": "Pulou"}, confirmado=True)
     r = _entrar(cliente, "pulou@uni.br", "SenhaBoa123")
     assert r.status_code == 403 and "análise" in r.json()["detail"]
+
+
+def test_erro_de_validacao_vem_em_portugues(cliente):
+    r = cliente.post("/api/cadastro", json={
+        "nome": "Ana", "email": "ana@uni.br", "instituicao": "Uni",
+        "vinculo": "estudante", "finalidade": "curta", "senha": "SenhaBoa123",
+        "termos": True})
+    assert r.status_code == 422
+    assert r.json()["detail"] == ("Como pretende usar a plataforma: escreva pelo "
+                                  "menos 10 caracteres.")
+    r = cliente.post("/api/cadastro", json={"email": "nao-e-email"})
+    assert "obrigatório" in r.json()["detail"] and "E-mail" in r.json()["detail"]
+
+
+def test_promover_pede_a_senha_do_admin(cliente, supabase):
+    s = _aprovado(cliente, supabase, "promover@uni.br")
+    adm = _admin(cliente)
+    uid = s["usuario"]["id"]
+    url = f"/api/admin/usuarios/{uid}/papel"
+
+    r = cliente.post(url, headers=cab(adm), json={"papel": "equipe"})
+    assert r.status_code == 403 and "senha" in r.json()["detail"]
+    r = cliente.post(url, headers=cab(adm), json={"papel": "equipe", "senha_admin": "errada"})
+    assert r.status_code == 403 and "incorreta" in r.json()["detail"]
+    assert cliente.get("/api/eu", headers=cab(s["token"])).json()["papel"] == "pesquisador"
+
+    r = cliente.post(url, headers=cab(adm),
+                     json={"papel": "equipe", "senha_admin": "SenhaAdmin123"})
+    assert r.status_code == 200 and r.json()["papel"] == "equipe"
+    avisos = cliente.get("/api/notificacoes", headers=cab(adm)).json()["avisos"]
+    assert any(a["tipo"] == "papel" and "promover@uni.br" in a["texto"] for a in avisos)
+
+    # Rebaixar não pede senha.
+    r = cliente.post(url, headers=cab(adm), json={"papel": "pesquisador"})
+    assert r.status_code == 200 and r.json()["papel"] == "pesquisador"
+
+
+def test_apagar_conta_some_do_login_e_mantem_as_bases(cliente, supabase):
+    from api import banco
+    s = _aprovado(cliente, supabase, "apagar@uni.br")
+    auth_id = supabase.por_email("apagar@uni.br")["id"]
+    with banco.sessao() as db:
+        db.add(banco.BaseDados(id="base-da-apagar", nome="Base dela", especie="X",
+                               arquivo="x.csv", enviada_por="apagar@uni.br"))
+        db.commit()
+    adm = _admin(cliente)
+    uid = s["usuario"]["id"]
+
+    lista = cliente.get("/api/admin/usuarios", headers=cab(adm)).json()["usuarios"]
+    assert next(x for x in lista if x["id"] == uid)["bases_enviadas"] == 1
+
+    r = cliente.delete(f"/api/admin/usuarios/{uid}", headers=cab(adm))
+    assert r.status_code == 200 and r.json()["bases_mantidas"] == 1
+    assert auth_id not in supabase.contas
+    assert _entrar(cliente, "apagar@uni.br", "SenhaBoa123").status_code == 401
+    lista = cliente.get("/api/admin/usuarios", headers=cab(adm)).json()["usuarios"]
+    assert all(x["email"] != "apagar@uni.br" for x in lista)
+    with banco.sessao() as db:
+        b = db.get(banco.BaseDados, "base-da-apagar")
+        assert b is not None and b.enviada_por == "(conta apagada)"
+        db.delete(b)
+        db.commit()
+
+
+def test_admin_nao_apaga_a_si_mesmo(cliente):
+    adm = _admin(cliente)
+    eu = cliente.get("/api/eu", headers=cab(adm)).json()
+    assert cliente.delete(f"/api/admin/usuarios/{eu['id']}", headers=cab(adm)).status_code == 400
