@@ -22,7 +22,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import select, text
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.orm import Session
 
 from . import (arquivos, autenticacao, banco, config, correio, isolado,
@@ -73,29 +73,41 @@ def limpar_vencidos(db: Session) -> dict:
     global _ultima_limpeza
     _ultima_limpeza = time.time()
     agora = banco.agora()
-    feito = {"analises": 0, "contas": 0}
+    feito = {"analises": 0, "contas": 0, "falhas": 0}
     try:
         limite = agora - banco.timedelta(days=config.RETENCAO_ANALISES_DIAS)
-        velhas = db.execute(select(banco.Analise)
-                            .where(banco.Analise.criado_em < limite)).scalars().all()
-        for a in velhas:
-            db.delete(a)
-        feito["analises"] = len(velhas)
+        r = db.execute(delete(banco.Analise).where(banco.Analise.criado_em < limite))
+        feito["analises"] = r.rowcount or 0
+        # Conta desativada antes de a data existir: o prazo começa a contar agora,
+        # em vez de ela ficar guardada para sempre.
+        db.execute(update(banco.Usuario)
+                   .where(banco.Usuario.ativo.is_(False),
+                          banco.Usuario.desativado_em.is_(None))
+                   .values(desativado_em=agora))
         db.commit()
-
-        limite = agora - banco.timedelta(days=config.RETENCAO_CONTA_DESATIVADA_DIAS)
-        paradas = db.execute(select(banco.Usuario).where(
-            banco.Usuario.ativo.is_(False),
-            banco.Usuario.desativado_em.is_not(None),
-            banco.Usuario.desativado_em < limite)).scalars().all()
-        for u in paradas:
-            if u.papel == "admin" and _conta_admins(db) <= 1:
-                continue
-            _apagar_usuario(db, u)
-            feito["contas"] += 1
     except Exception as e:                 # noqa: BLE001 — limpeza não derruba nada
         db.rollback()
-        print(f"[limpeza] não terminou: {e}")
+        print(f"[limpeza] histórico não foi limpo: {e}")
+
+    limite = agora - banco.timedelta(days=config.RETENCAO_CONTA_DESATIVADA_DIAS)
+    try:
+        paradas = db.execute(select(banco.Usuario).where(
+            banco.Usuario.ativo.is_(False),
+            banco.Usuario.desativado_em < limite)).scalars().all()
+    except Exception as e:                 # noqa: BLE001
+        db.rollback()
+        print(f"[limpeza] não deu para listar as contas vencidas: {e}")
+        paradas = []
+    # Uma por vez: se o Supabase falhar numa conta, as outras seguem. Conta
+    # desativada nunca é o último admin ativo, então pode sair sem conferir.
+    for u in paradas:
+        try:
+            _apagar_usuario(db, u)
+            feito["contas"] += 1
+        except Exception as e:             # noqa: BLE001
+            db.rollback()
+            feito["falhas"] += 1
+            print(f"[limpeza] conta {u.id} não foi apagada: {e}")
     if feito["analises"] or feito["contas"]:
         print(f"[limpeza] {feito['analises']} análise(s) e {feito['contas']} "
               "conta(s) apagadas por prazo de retenção.")
@@ -1025,6 +1037,7 @@ def apagar_conta(usuario_id: int, adm: Admin, db: Db):
 
 
 def _apagar_usuario(db: Session, u: banco.Usuario) -> int:
+    # (usada pela tela Usuários e pela limpeza automática)
     """Apaga a pessoa de tudo e devolve quantas bases dela ficaram sem dono."""
     # Primeiro o login: se o Supabase falhar, nada é apagado aqui e dá para
     # tentar de novo. Conta que já não existe lá não é erro.
@@ -1046,9 +1059,7 @@ def _apagar_usuario(db: Session, u: banco.Usuario) -> int:
     for n in db.execute(select(banco.Notificacao)
                         .where(banco.Notificacao.autor == email)).scalars().all():
         db.delete(n)
-    for a in db.execute(select(banco.Analise)
-                        .where(banco.Analise.usuario_id == u.id)).scalars().all():
-        db.delete(a)
+    db.execute(delete(banco.Analise).where(banco.Analise.usuario_id == u.id))
     db.delete(u)
     db.commit()
     return len(bases)
@@ -1066,9 +1077,13 @@ def mudar_ativo(usuario_id: int, entrada: AtivoEntrada, adm: Admin, db: Db):
 
     # Desativar corta o acesso na hora: toda rota confere o status (ver
     # usuario_atual), e a renovação da sessão também.
-    u.ativo = entrada.ativo
     # A data conta o prazo de retenção: um ano desativada e a conta é apagada.
-    u.desativado_em = None if entrada.ativo else banco.agora()
+    # Só muda quando o estado muda: desativar de novo não reinicia o prazo.
+    if entrada.ativo:
+        u.desativado_em = None
+    elif u.ativo or u.desativado_em is None:
+        u.desativado_em = banco.agora()
+    u.ativo = entrada.ativo
     db.commit()
     return u.publico()
 
@@ -1830,7 +1845,8 @@ def minhas_analises(u: Logado, db: Db, limite: int = 50):
         select(banco.Analise).where(banco.Analise.usuario_id == u.id)
         .order_by(banco.Analise.criado_em.desc()).limit(max(1, min(limite, 200)))
     ).scalars().all()
-    total = banco.contar(db, banco.Analise, usuario_id=u.id)
+    total = db.execute(select(func.count()).select_from(banco.Analise)
+                       .where(banco.Analise.usuario_id == u.id)).scalar_one()
     return {"total": total, "retencao_dias": config.RETENCAO_ANALISES_DIAS,
             "analises": [a.publico() for a in itens]}
 
@@ -1852,12 +1868,9 @@ def apagar_analise(analise_id: int, u: Logado, db: Db):
 
 @app.delete("/api/eu/analises", tags=["previsão"])
 def apagar_historico(u: Logado, db: Db):
-    itens = db.execute(select(banco.Analise)
-                       .where(banco.Analise.usuario_id == u.id)).scalars().all()
-    for a in itens:
-        db.delete(a)
+    r = db.execute(delete(banco.Analise).where(banco.Analise.usuario_id == u.id))
     db.commit()
-    return {"apagadas": len(itens)}
+    return {"apagadas": r.rowcount or 0}
 
 
 # --------------------------------------------------------------------------- #
@@ -1865,17 +1878,19 @@ def apagar_historico(u: Logado, db: Db):
 # --------------------------------------------------------------------------- #
 
 @app.post("/api/isolado/ler", tags=["previsão"])
-async def ler_isolado(u: Logado, arquivo: UploadFile = File(...)):
+def ler_isolado(u: Logado, arquivo: UploadFile = File(...)):
     """Lê o arquivo de um isolado e devolve os genes. Nada é gravado: o
-    arquivo fica só na memória enquanto é lido."""
+    arquivo fica só na memória enquanto é lido. Rota comum (não async): o
+    FastAPI a roda numa thread à parte, e um arquivo grande não trava as
+    outras requisições enquanto é lido."""
     limite = config.MAX_MB_ISOLADO * 1024 * 1024
-    conteudo = await arquivo.read(limite + 1)
     try:
+        conteudo = arquivo.file.read(limite + 1)
         return isolado.ler(conteudo, arquivo.filename or "")
     except isolado.ArquivoInvalido as e:
         raise HTTPException(400, str(e)) from e
     finally:
-        await arquivo.close()
+        arquivo.file.close()
 
 
 @app.get("/api/consentimento", tags=["acesso"])

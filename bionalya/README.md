@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > **Esta é a primeira versão das telas, guardada como registro.** Ela não tem banco,
-> não tem API e mostra dados de exemplo fixos. A plataforma de verdade — 16 telas
+> não tem API e mostra dados de exemplo fixos. A plataforma de verdade — 18 telas
 > ligadas à API, com login, banco de dados e os modelos treinados — está em
 > [`plataforma/`](../plataforma/), e o manual dela em
 > [`plataforma/README.md`](../plataforma/README.md). A identidade visual, o modo escuro

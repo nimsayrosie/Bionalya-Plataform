@@ -141,3 +141,62 @@ def test_rota_ler_isolado(cliente, supabase):
     assert r.status_code == 400 and "Não reconheci" in r.json()["detail"]
     assert cliente.post("/api/isolado/ler",
                         files={"arquivo": ("x.csv", NCBI, "text/csv")}).status_code == 401
+
+
+# --------------------------------------------------------------------------- #
+# Correções da revisão de código
+# --------------------------------------------------------------------------- #
+
+def test_limpeza_apaga_admin_desativado_e_conta_sem_data(cliente, supabase):
+    from api import banco
+    from api.main import limpar_vencidos
+    adm = _admin(cliente)
+    velho = _aprovado(cliente, supabase, "admin-velho@uni.br")
+    sem_data = _aprovado(cliente, supabase, "sem-data@uni.br")
+    with banco.sessao() as db:
+        u = db.get(banco.Usuario, velho["usuario"]["id"])
+        u.papel, u.ativo = "admin", False
+        u.desativado_em = banco.agora() - timedelta(days=400)
+        v = db.get(banco.Usuario, sem_data["usuario"]["id"])
+        v.ativo, v.desativado_em = False, None        # desativada antes da coluna existir
+        db.commit()
+        limpar_vencidos(db)
+        assert db.get(banco.Usuario, velho["usuario"]["id"]) is None
+        v = db.get(banco.Usuario, sem_data["usuario"]["id"])
+        assert v is not None and v.desativado_em is not None   # o prazo começou agora
+    assert cliente.get("/api/eu", headers=cab(adm)).status_code == 200
+
+
+def test_desativar_de_novo_nao_reinicia_o_prazo(cliente, supabase):
+    from api import banco
+    s = _aprovado(cliente, supabase, "duas-vezes@uni.br")
+    adm = _admin(cliente)
+    url = f"/api/admin/usuarios/{s['usuario']['id']}/ativo"
+    cliente.post(url, headers=cab(adm), json={"ativo": False})
+    with banco.sessao() as db:
+        u = db.get(banco.Usuario, s["usuario"]["id"])
+        u.desativado_em = banco.agora() - timedelta(days=300)
+        db.commit()
+    cliente.post(url, headers=cab(adm), json={"ativo": False})
+    with banco.sessao() as db:
+        u = db.get(banco.Usuario, s["usuario"]["id"])
+        d = u.desativado_em if u.desativado_em.tzinfo else u.desativado_em.replace(
+            tzinfo=banco.agora().tzinfo)
+        assert (banco.agora() - d).days >= 299
+
+
+def test_arquivo_binario_utf16_e_aspas_quebradas():
+    import pytest
+    from api import isolado
+    with pytest.raises(isolado.ArquivoInvalido, match="não é texto"):
+        isolado.ler(b"PK\x03\x04\x00\x00planilha")
+    utf16 = "#Organism group\tIsolate\tAMR genotypes\nN\tPDT9\tgyrA_S91F=POINT\n".encode("utf-16")
+    assert isolado.ler(utf16)["isolados"][0]["genes"] == ["gyrA_S91F"]
+    quebrado = b'#Organism group,AMR genotypes\nN,"gyrA_S91F=POINT' + b"x" * 140000
+    with pytest.raises(isolado.ArquivoInvalido):
+        isolado.ler(quebrado)
+
+
+def test_consentimento_usa_o_prazo_configurado():
+    from api import config
+    assert f"{config.RETENCAO_ANALISES_DIAS} dias" in config.CONSENTIMENTO
