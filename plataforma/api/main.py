@@ -18,6 +18,7 @@ from typing import Annotated
 import pandas as pd
 from fastapi import (BackgroundTasks, Depends, FastAPI, File, Form, Header,
                      HTTPException, Request, UploadFile, status)
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
@@ -230,6 +231,50 @@ app = FastAPI(
     version="0.1.0",
     lifespan=ciclo_de_vida,
 )
+
+
+# Nome dos campos como aparecem nas telas, para a mensagem de erro fazer sentido.
+CAMPOS_PT = {
+    "nome": "Nome", "email": "E-mail", "instituicao": "Instituição",
+    "vinculo": "Vínculo", "finalidade": "Como pretende usar a plataforma",
+    "senha": "Senha", "senha_atual": "Senha atual", "senha_nova": "Senha nova",
+    "termos": "Termos", "motivo": "Motivo", "papel": "Papel",
+    "antibiotico": "Antibiótico", "genes": "Genes", "observacao": "Observação",
+    "limiar": "Limiar", "refresh_token": "Sessão", "token_hash": "Link",
+}
+
+
+def _erro_de_campo(erro: dict) -> str:
+    campo = next((str(p) for p in reversed(erro.get("loc", ())) if isinstance(p, str)
+                  and p not in ("body", "query", "path")), "")
+    nome = CAMPOS_PT.get(campo, campo.replace("_", " ").capitalize() or "Um campo")
+    tipo = erro.get("type", "")
+    ctx = erro.get("ctx") or {}
+    if tipo == "missing":
+        return f"{nome}: campo obrigatório."
+    if tipo == "string_too_short":
+        n = ctx.get("min_length")
+        return f"{nome}: escreva pelo menos {n} caracteres."
+    if tipo == "string_too_long":
+        n = ctx.get("max_length")
+        return f"{nome}: use no máximo {n} caracteres."
+    if campo == "email" or "email" in tipo:
+        return "E-mail: confira o endereço, ele não parece válido."
+    if tipo in ("greater_than_equal", "less_than_equal", "greater_than", "less_than"):
+        return f"{nome}: valor fora do permitido."
+    if tipo.endswith("_type") or tipo.endswith("_parsing"):
+        return f"{nome}: valor em formato inválido."
+    return f"{nome}: valor inválido."
+
+
+@app.exception_handler(RequestValidationError)
+def _erro_validacao(_: Request, e: RequestValidationError):
+    """Erro de validação do FastAPI, que vem em inglês, vira frase em português.
+
+    Sem isso a tela mostrava "String should have at least 10 characters".
+    """
+    mensagens = list(dict.fromkeys(_erro_de_campo(x) for x in e.errors()))
+    return JSONResponse({"detail": " ".join(mensagens)}, status_code=422)
 
 
 @app.exception_handler(autenticacao.ErroAuth)

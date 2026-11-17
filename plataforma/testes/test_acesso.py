@@ -280,3 +280,15 @@ def test_conta_criada_direto_no_supabase_entra_em_analise(cliente, supabase):
     supabase.nova_conta("pulou@uni.br", "SenhaBoa123", {"nome": "Pulou"}, confirmado=True)
     r = _entrar(cliente, "pulou@uni.br", "SenhaBoa123")
     assert r.status_code == 403 and "análise" in r.json()["detail"]
+
+
+def test_erro_de_validacao_vem_em_portugues(cliente):
+    r = cliente.post("/api/cadastro", json={
+        "nome": "Ana", "email": "ana@uni.br", "instituicao": "Uni",
+        "vinculo": "estudante", "finalidade": "curta", "senha": "SenhaBoa123",
+        "termos": True})
+    assert r.status_code == 422
+    assert r.json()["detail"] == ("Como pretende usar a plataforma: escreva pelo "
+                                  "menos 10 caracteres.")
+    r = cliente.post("/api/cadastro", json={"email": "nao-e-email"})
+    assert "obrigatório" in r.json()["detail"] and "E-mail" in r.json()["detail"]
