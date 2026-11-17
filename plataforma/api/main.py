@@ -561,6 +561,9 @@ class SenhaEntrada(BaseModel):
 
 class PapelEntrada(BaseModel):
     papel: str
+    # Promover a equipe ou admin pede a senha de quem está promovendo. É a
+    # garantia de que foi a própria pessoa, e não alguém no computador dela.
+    senha_admin: str | None = Field(default=None, max_length=200)
 
 
 class AtivoEntrada(BaseModel):
@@ -872,10 +875,36 @@ def listar_usuarios(_: Admin, db: Db, papel: str | None = None,
         usuarios = [u for u in usuarios
                     if alvo in u.nome.lower() or alvo in u.email.lower()
                     or alvo in (u.instituicao or "").lower()]
+    bases_por_email: dict[str, int] = {}
+    for b in db.execute(select(banco.BaseDados)).scalars().all():
+        if b.enviada_por:
+            chave = b.enviada_por.lower()
+            bases_por_email[chave] = bases_por_email.get(chave, 0) + 1
     return {
         "resumo": {p: banco.contar(db, banco.Usuario, papel=p) for p in banco.PAPEIS},
-        "usuarios": [u.publico() for u in usuarios],
+        "usuarios": [u.publico() | {"bases_enviadas": bases_por_email.get(u.email, 0)}
+                     for u in usuarios],
     }
+
+
+SENHA_ADMIN_ERRADA = "Sua senha está incorreta. A mudança não foi feita."
+
+
+def _conferir_senha_admin(adm: banco.Usuario, senha: str | None) -> None:
+    """Confere a senha de quem está logado, entrando de novo no Supabase.
+
+    A sessão que nasce da conferência é encerrada na hora: só serviu para
+    provar que a pessoa sabe a senha.
+    """
+    if not senha:
+        raise HTTPException(403, "Digite a sua senha para confirmar.")
+    try:
+        sessao = autenticacao.entrar(adm.email, senha)
+    except autenticacao.ErroAuth as e:
+        if e.status in (400, 401):
+            raise HTTPException(403, SENHA_ADMIN_ERRADA) from e
+        raise
+    autenticacao.sair(sessao.access_token)
 
 
 @app.post("/api/admin/usuarios/{usuario_id}/papel", tags=["admin"])
@@ -889,6 +918,13 @@ def mudar_papel(usuario_id: int, entrada: PapelEntrada, adm: Admin, db: Db):
         raise HTTPException(400, "Você não pode mudar o seu próprio papel.")
     if u.papel == "admin" and entrada.papel != "admin" and _conta_admins(db) <= 1:
         raise HTTPException(400, "Este é o único admin. Promova outra pessoa antes.")
+    if entrada.papel == u.papel:
+        return u.publico()
+
+    antes = u.papel
+    promocao = banco.NIVEL[entrada.papel] > banco.NIVEL[antes]
+    if promocao and entrada.papel in ("equipe", "admin"):
+        _conferir_senha_admin(adm, entrada.senha_admin)
 
     u.papel = entrada.papel
     if entrada.papel in ("equipe", "admin") and u.status != "aprovado":
@@ -896,7 +932,57 @@ def mudar_papel(usuario_id: int, entrada: PapelEntrada, adm: Admin, db: Db):
         u.decidido_em = banco.agora()
         u.decidido_por = adm.email
     db.commit()
+    # Fica registrado para a equipe: mudança de papel é a ação mais sensível
+    # da plataforma, e o aviso mostra quem fez.
+    banco.avisar(db, "papel", f"{u.nome} agora é {entrada.papel}",
+                 f"{adm.nome} ({adm.email}) mudou o papel de {u.email} de "
+                 f"{antes} para {entrada.papel}.",
+                 link=f"usuarios.html?busca={u.email}", autor=adm.email)
     return u.publico()
+
+
+@app.delete("/api/admin/usuarios/{usuario_id}", tags=["admin"])
+def apagar_conta(usuario_id: int, adm: Admin, db: Db):
+    """Apaga a conta de vez: do login (Supabase) e da tabela usuarios.
+
+    Não dá para desfazer. Os avisos que a pessoa gerou saem junto. As bases
+    que ela enviou continuam na plataforma, sem dono: só a equipe pode
+    treinar com elas ou removê-las depois.
+    """
+    u = db.get(banco.Usuario, usuario_id)
+    if u is None:
+        raise HTTPException(404, "Usuário não encontrado.")
+    if u.id == adm.id:
+        raise HTTPException(400, "Você não pode apagar a sua própria conta.")
+    if u.papel == "admin" and u.ativo and _conta_admins(db) <= 1:
+        raise HTTPException(400, "Este é o único admin ativo.")
+
+    # Primeiro o login: se o Supabase falhar, nada é apagado aqui e dá para
+    # tentar de novo. Conta que já não existe lá não é erro.
+    if u.auth_id:
+        try:
+            autenticacao.admin_apagar(u.auth_id)
+        except autenticacao.ErroAuth as e:
+            if e.status != 404:
+                raise
+
+    email, nome = u.email, u.nome
+    bases = db.execute(select(banco.BaseDados)
+                       .where(banco.BaseDados.enviada_por == email)).scalars().all()
+    for b in bases:
+        b.enviada_por = "(conta apagada)"
+    for a in db.execute(select(banco.Antibiotico)
+                        .where(banco.Antibiotico.criado_por == email)).scalars().all():
+        a.criado_por = "(conta apagada)"
+    for n in db.execute(select(banco.Notificacao)
+                        .where(banco.Notificacao.autor == email)).scalars().all():
+        db.delete(n)
+    db.delete(u)
+    db.commit()
+    return {"ok": True, "bases_mantidas": len(bases),
+            "mensagem": f"A conta de {nome} foi apagada."
+                        + (f" {len(bases)} base(s) que ela enviou continuam na "
+                           "plataforma, sem dono." if bases else "")}
 
 
 @app.post("/api/admin/usuarios/{usuario_id}/ativo", tags=["admin"])

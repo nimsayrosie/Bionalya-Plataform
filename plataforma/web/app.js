@@ -250,6 +250,103 @@
     return trocaEmAndamento;
   }
 
+  /* ------------------------------------------------ janela de confirmação */
+  /* Bio.confirmar({ titulo, texto, itens, aviso, botao, perigo, senha })
+     Abre uma janela por cima da tela e devolve uma Promise: resolve com
+     { senha } se a pessoa confirmar, ou null se cancelar (botão, Esc ou
+     fora). Com senha: true, pede a senha de quem está logado. */
+  function confirmar(op) {
+    op = op || {};
+    return new Promise(function (resolver) {
+      var d = document.createElement("dialog");
+      d.className = "dialogo";
+      d.setAttribute("aria-labelledby", "conf-titulo");
+
+      var h = document.createElement("h2");
+      h.id = "conf-titulo";
+      h.textContent = op.titulo || "Tem certeza?";
+      d.appendChild(h);
+
+      if (op.texto) {
+        var p = document.createElement("p");
+        p.textContent = op.texto;
+        d.appendChild(p);
+      }
+      if (op.itens && op.itens.length) {
+        var ul = document.createElement("ul");
+        ul.className = "dialogo-lista";
+        op.itens.forEach(function (t) {
+          var li = document.createElement("li");
+          li.textContent = t;
+          ul.appendChild(li);
+        });
+        d.appendChild(ul);
+      }
+      if (op.aviso) {
+        var av = document.createElement("div");
+        av.className = "recado recado-erro";
+        av.textContent = op.aviso;
+        d.appendChild(av);
+      }
+
+      var form = document.createElement("form");
+      form.noValidate = true;
+      var campoSenha = null;
+      if (op.senha) {
+        var c = document.createElement("div");
+        c.className = "campo";
+        c.innerHTML = '<label for="conf-senha">Sua senha</label>' +
+          '<input type="password" id="conf-senha" autocomplete="current-password" required>' +
+          '<span class="ajuda">A mesma que você usa para entrar. Confirma que é você.</span>';
+        form.appendChild(c);
+        campoSenha = c.querySelector("input");
+      }
+      var recado = document.createElement("div");
+      recado.className = "recado";
+      recado.hidden = true;
+      recado.setAttribute("role", "alert");
+      form.appendChild(recado);
+
+      var acoes = document.createElement("div");
+      acoes.className = "dialogo-acoes";
+      var cancelar = document.createElement("button");
+      cancelar.type = "button";
+      cancelar.className = "botao botao-claro";
+      cancelar.textContent = "Cancelar";
+      var ok = document.createElement("button");
+      ok.type = "submit";
+      ok.className = "botao" + (op.perigo ? " botao-recusar" : "");
+      ok.textContent = op.botao || "Confirmar";
+      acoes.append(cancelar, ok);
+      form.appendChild(acoes);
+      d.appendChild(form);
+      document.body.appendChild(d);
+
+      var respondido = false;
+      function fechar(valor) {
+        if (respondido) return;
+        respondido = true;
+        d.close();
+        d.remove();
+        resolver(valor);
+      }
+      cancelar.addEventListener("click", function () { fechar(null); });
+      d.addEventListener("cancel", function (ev) { ev.preventDefault(); fechar(null); });
+      form.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        if (campoSenha && !campoSenha.value) {
+          aviso(recado, "Digite a sua senha para confirmar.");
+          campoSenha.focus();
+          return;
+        }
+        fechar({ senha: campoSenha ? campoSenha.value : null });
+      });
+
+      d.showModal();
+      (campoSenha || cancelar).focus();
+    });
+  }
+
   /* ------------------------------------------------- avisos para a equipe */
   /* Importar base e treinar modelo não passam mais por aprovação. Em vez de
      segurar o trabalho de quem envia, a plataforma avisa a equipe: este é o
@@ -315,7 +412,7 @@
     exigirLogin: exigirLogin, pintarCabecalho: pintarCabecalho, pode: pode,
     aviso: aviso, ocupado: ocupado, contarAvisos: contarAvisos,
     pct: pct, num: num, inteiro: inteiro, sinal: sinal,
-    pedirTrocaDeSenha: pedirTrocaDeSenha,
+    pedirTrocaDeSenha: pedirTrocaDeSenha, confirmar: confirmar,
     guardarResultado: guardarResultado, lerResultado: lerResultado
   };
 })(window);
