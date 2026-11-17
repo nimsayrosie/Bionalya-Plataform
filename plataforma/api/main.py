@@ -25,8 +25,8 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from . import (arquivos, autenticacao, banco, config, correio, modelos,
-               seguranca, treino)
+from . import (arquivos, autenticacao, banco, config, correio, isolado,
+               modelos, seguranca, treino)
 
 # --------------------------------------------------------------------------- #
 # Partida
@@ -53,6 +53,58 @@ def iniciar() -> None:
             except autenticacao.ErroAuth as e:
                 db.rollback()
                 print(f"\nAVISO: {semear.__name__}: {e.mensagem}\n")
+        limpar_vencidos(db)
+
+
+# --------------------------------------------------------------------------- #
+# Retenção de dados pessoais (LGPD) — regras em docs/requisitos-lgpd.md
+# --------------------------------------------------------------------------- #
+
+_ultima_limpeza = 0.0
+
+
+def limpar_vencidos(db: Session) -> dict:
+    """Apaga o que passou do prazo: histórico de análises com mais de
+    RETENCAO_ANALISES_DIAS e contas desativadas há mais de
+    RETENCAO_CONTA_DESATIVADA_DIAS. Roda na partida e, no máximo uma vez por
+    dia, quando alguém (o ping do GitHub, por exemplo) abre /saude.
+    Nunca derruba quem chamou."""
+    import time
+    global _ultima_limpeza
+    _ultima_limpeza = time.time()
+    agora = banco.agora()
+    feito = {"analises": 0, "contas": 0}
+    try:
+        limite = agora - banco.timedelta(days=config.RETENCAO_ANALISES_DIAS)
+        velhas = db.execute(select(banco.Analise)
+                            .where(banco.Analise.criado_em < limite)).scalars().all()
+        for a in velhas:
+            db.delete(a)
+        feito["analises"] = len(velhas)
+        db.commit()
+
+        limite = agora - banco.timedelta(days=config.RETENCAO_CONTA_DESATIVADA_DIAS)
+        paradas = db.execute(select(banco.Usuario).where(
+            banco.Usuario.ativo.is_(False),
+            banco.Usuario.desativado_em.is_not(None),
+            banco.Usuario.desativado_em < limite)).scalars().all()
+        for u in paradas:
+            if u.papel == "admin" and _conta_admins(db) <= 1:
+                continue
+            _apagar_usuario(db, u)
+            feito["contas"] += 1
+    except Exception as e:                 # noqa: BLE001 — limpeza não derruba nada
+        db.rollback()
+        print(f"[limpeza] não terminou: {e}")
+    if feito["analises"] or feito["contas"]:
+        print(f"[limpeza] {feito['analises']} análise(s) e {feito['contas']} "
+              "conta(s) apagadas por prazo de retenção.")
+    return feito
+
+
+def _limpeza_diaria() -> None:
+    with banco.sessao() as db:
+        limpar_vencidos(db)
 
 
 def _liberar_bases_em_analise(db: Session) -> None:
@@ -507,6 +559,8 @@ class CadastroEntrada(BaseModel):
     finalidade: str = Field(min_length=10, max_length=2000)
     senha: str
     termos: bool
+    # Consentimento para tratar os dados pessoais (LGPD, art. 7º, I).
+    consentimento: bool = False
 
 
 class EmailEntrada(BaseModel):
@@ -617,6 +671,9 @@ def cadastrar(entrada: CadastroEntrada, db: Db):
     confirmado e acesso liberado pela equipe."""
     if not entrada.termos:
         raise HTTPException(400, "É preciso aceitar os termos para solicitar acesso.")
+    if not entrada.consentimento:
+        raise HTTPException(400, "É preciso autorizar o uso dos seus dados para "
+                                 "solicitar acesso.")
     if entrada.vinculo not in banco.VINCULOS:
         raise HTTPException(400, f"Vínculo inválido. Use um de: {', '.join(banco.VINCULOS)}.")
     if (erro := seguranca.criticar_senha(entrada.senha)):
@@ -636,6 +693,8 @@ def cadastrar(entrada: CadastroEntrada, db: Db):
         vinculo=entrada.vinculo, finalidade=metadados["finalidade"],
         auth_id=auth_id, email_confirmado=confirmado,
         papel="pesquisador", status="em_analise", senha_trocada=True,
+        consentimento_em=banco.agora(),
+        consentimento_versao=config.CONSENTIMENTO_VERSAO,
     ))
     db.commit()
     mensagem = ("Solicitação enviada. A equipe responde no e-mail cadastrado."
@@ -957,6 +1016,16 @@ def apagar_conta(usuario_id: int, adm: Admin, db: Db):
     if u.papel == "admin" and u.ativo and _conta_admins(db) <= 1:
         raise HTTPException(400, "Este é o único admin ativo.")
 
+    nome = u.nome
+    n_bases = _apagar_usuario(db, u)
+    return {"ok": True, "bases_mantidas": n_bases,
+            "mensagem": f"A conta de {nome} foi apagada."
+                        + (f" {n_bases} base(s) que ela enviou continuam na "
+                           "plataforma, sem dono." if n_bases else "")}
+
+
+def _apagar_usuario(db: Session, u: banco.Usuario) -> int:
+    """Apaga a pessoa de tudo e devolve quantas bases dela ficaram sem dono."""
     # Primeiro o login: se o Supabase falhar, nada é apagado aqui e dá para
     # tentar de novo. Conta que já não existe lá não é erro.
     if u.auth_id:
@@ -966,7 +1035,7 @@ def apagar_conta(usuario_id: int, adm: Admin, db: Db):
             if e.status != 404:
                 raise
 
-    email, nome = u.email, u.nome
+    email = u.email
     bases = db.execute(select(banco.BaseDados)
                        .where(banco.BaseDados.enviada_por == email)).scalars().all()
     for b in bases:
@@ -977,12 +1046,12 @@ def apagar_conta(usuario_id: int, adm: Admin, db: Db):
     for n in db.execute(select(banco.Notificacao)
                         .where(banco.Notificacao.autor == email)).scalars().all():
         db.delete(n)
+    for a in db.execute(select(banco.Analise)
+                        .where(banco.Analise.usuario_id == u.id)).scalars().all():
+        db.delete(a)
     db.delete(u)
     db.commit()
-    return {"ok": True, "bases_mantidas": len(bases),
-            "mensagem": f"A conta de {nome} foi apagada."
-                        + (f" {len(bases)} base(s) que ela enviou continuam na "
-                           "plataforma, sem dono." if bases else "")}
+    return len(bases)
 
 
 @app.post("/api/admin/usuarios/{usuario_id}/ativo", tags=["admin"])
@@ -998,6 +1067,8 @@ def mudar_ativo(usuario_id: int, entrada: AtivoEntrada, adm: Admin, db: Db):
     # Desativar corta o acesso na hora: toda rota confere o status (ver
     # usuario_atual), e a renovação da sessão também.
     u.ativo = entrada.ativo
+    # A data conta o prazo de retenção: um ano desativada e a conta é apagada.
+    u.desativado_em = None if entrada.ativo else banco.agora()
     db.commit()
     return u.publico()
 
@@ -1723,7 +1794,96 @@ def prever(entrada: PrevisaoEntrada, u: Logado, db: Db):
         "O modelo foi treinado com uma única espécie e pode errar, inclusive "
         "prevendo “sensível” para uma bactéria resistente."
     )
+    # Fica no histórico da pessoa por RETENCAO_ANALISES_DIAS. Se gravar falhar,
+    # a previsão sai do mesmo jeito: o histórico é conveniência.
+    try:
+        reg = banco.Analise(
+            usuario_id=u.id, antibiotico=entrada.antibiotico,
+            nome_antibiotico=linha.nome,
+            modelo=(resposta.get("modelo") or {}).get("nome", escolhido or "—"),
+            n_genes=len(entrada.genes), classe=resposta.get("classe", "—"),
+            probabilidade=float(resposta.get("probabilidade") or 0),
+            resultado=json.dumps(resposta, ensure_ascii=False, default=str))
+        db.add(reg)
+        db.commit()
+        resposta["analise_id"] = reg.id
+    except Exception as e:                 # noqa: BLE001
+        db.rollback()
+        print(f"[historico] não gravou a análise: {e}")
     return resposta
+
+
+# --------------------------------------------------------------------------- #
+# Histórico de análises da própria pessoa
+# --------------------------------------------------------------------------- #
+
+def _minha_analise(db: Session, u, analise_id: int) -> banco.Analise:
+    a = db.get(banco.Analise, analise_id)
+    if a is None or a.usuario_id != u.id:      # de outra pessoa: nem existe
+        raise HTTPException(404, "Análise não encontrada.")
+    return a
+
+
+@app.get("/api/eu/analises", tags=["previsão"])
+def minhas_analises(u: Logado, db: Db, limite: int = 50):
+    itens = db.execute(
+        select(banco.Analise).where(banco.Analise.usuario_id == u.id)
+        .order_by(banco.Analise.criado_em.desc()).limit(max(1, min(limite, 200)))
+    ).scalars().all()
+    total = banco.contar(db, banco.Analise, usuario_id=u.id)
+    return {"total": total, "retencao_dias": config.RETENCAO_ANALISES_DIAS,
+            "analises": [a.publico() for a in itens]}
+
+
+@app.get("/api/eu/analises/{analise_id}", tags=["previsão"])
+def abrir_analise(analise_id: int, u: Logado, db: Db):
+    a = _minha_analise(db, u, analise_id)
+    resposta = json.loads(a.resultado)
+    resposta["analise_id"] = a.id
+    resposta["feita_em"] = a.criado_em.isoformat() if a.criado_em else None
+    return resposta
+
+
+@app.delete("/api/eu/analises/{analise_id}", status_code=204, tags=["previsão"])
+def apagar_analise(analise_id: int, u: Logado, db: Db):
+    db.delete(_minha_analise(db, u, analise_id))
+    db.commit()
+
+
+@app.delete("/api/eu/analises", tags=["previsão"])
+def apagar_historico(u: Logado, db: Db):
+    itens = db.execute(select(banco.Analise)
+                       .where(banco.Analise.usuario_id == u.id)).scalars().all()
+    for a in itens:
+        db.delete(a)
+    db.commit()
+    return {"apagadas": len(itens)}
+
+
+# --------------------------------------------------------------------------- #
+# Arquivo do isolado (Nova análise)
+# --------------------------------------------------------------------------- #
+
+@app.post("/api/isolado/ler", tags=["previsão"])
+async def ler_isolado(u: Logado, arquivo: UploadFile = File(...)):
+    """Lê o arquivo de um isolado e devolve os genes. Nada é gravado: o
+    arquivo fica só na memória enquanto é lido."""
+    limite = config.MAX_MB_ISOLADO * 1024 * 1024
+    conteudo = await arquivo.read(limite + 1)
+    try:
+        return isolado.ler(conteudo, arquivo.filename or "")
+    except isolado.ArquivoInvalido as e:
+        raise HTTPException(400, str(e)) from e
+    finally:
+        await arquivo.close()
+
+
+@app.get("/api/consentimento", tags=["acesso"])
+def texto_consentimento():
+    """O texto que o cadastro mostra no aceite dos dados pessoais."""
+    return {"versao": config.CONSENTIMENTO_VERSAO, "texto": config.CONSENTIMENTO,
+            "retencao_analises_dias": config.RETENCAO_ANALISES_DIAS,
+            "retencao_conta_desativada_dias": config.RETENCAO_CONTA_DESATIVADA_DIAS}
 
 
 # --------------------------------------------------------------------------- #
@@ -1736,7 +1896,7 @@ def raiz():
 
 
 @app.get("/saude", tags=["base"])
-def saude(db: Db):
+def saude(db: Db, tarefas: BackgroundTasks):
     """Confere a API e o banco. O ping semanal (.github/workflows) bate aqui,
     e a consulta ao banco é o que conta como uso para o Supabase não pausar
     o projeto."""
@@ -1745,6 +1905,10 @@ def saude(db: Db):
         banco_ok = True
     except Exception:
         banco_ok = False
+    # Uma vez por dia, a limpeza do que venceu roda depois da resposta.
+    import time
+    if banco_ok and time.time() - _ultima_limpeza > 24 * 3600:
+        tarefas.add_task(_limpeza_diaria)
     return {"ok": banco_ok, "banco": banco_ok,
             "login": autenticacao.configurado(),
             "email": correio.configurado(),

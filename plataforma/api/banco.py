@@ -10,18 +10,19 @@ Tabelas:
   bases         os CSVs de isolados
   antibioticos  quais aparecem na plataforma e qual o nome em português
   notificacoes  avisos para a equipe
+  analises      histórico das previsões de cada pessoa, por 90 dias
   arquivos      cópia dos CSVs e modelos, para sobreviverem ao reinício
 
-O que NÃO está aqui, de propósito: log de previsões. Ele entra depois, junto
-com a reescrita do RNF10, porque gravar consulta ligada a usuário é tratamento
-de dado pessoal e precisa de base legal e prazo de retenção definidos.
+O histórico de análises é dado pessoal (consulta ligada a uma pessoa). A base
+legal e o prazo de retenção estão em docs/requisitos-lgpd.md, e a limpeza do
+que venceu é limpar_vencidos(), mais abaixo.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import (Boolean, DateTime, Integer, LargeBinary,
+from sqlalchemy import (Boolean, DateTime, Float, Integer, LargeBinary,
                         String, Text,
                         create_engine, select)
 from sqlalchemy.orm import (DeclarativeBase, Mapped, Session, mapped_column,
@@ -76,6 +77,14 @@ class Usuario(Base):
     decidido_por: Mapped[str | None] = mapped_column(String(160), nullable=True)
     motivo_recusa: Mapped[str | None] = mapped_column(Text, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Quando foi desativada. Conta desativada há mais de um ano é apagada.
+    desativado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                           nullable=True)
+    # Consentimento do cadastro (LGPD): quando e qual versão do texto. Vazio
+    # em conta criada pelo admin, que não passou pelo cadastro.
+    consentimento_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                              nullable=True)
+    consentimento_versao: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # False quando a senha foi sorteada (pelo admin ou na partida): a tela
     # Minha conta pede para trocar.
     senha_trocada: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -93,6 +102,9 @@ class Usuario(Base):
             "ativo": self.ativo,
             "senha_trocada": self.senha_trocada,
             "email_confirmado": self.email_confirmado,
+            "desativado_em": self.desativado_em.isoformat() if self.desativado_em else None,
+            "consentimento_em": (self.consentimento_em.isoformat()
+                                 if self.consentimento_em else None),
         }
 
 
@@ -190,6 +202,36 @@ class Notificacao(Base):
             "criada_em": self.criada_em.isoformat() if self.criada_em else None,
             "lida": self.lida_em is not None,
             "lida_por": self.lida_por,
+        }
+
+
+class Analise(Base):
+    """Uma previsão feita por alguém. É o histórico da tela Minha conta.
+
+    Guarda a resposta inteira, para a pessoa reabrir o resultado depois. Some
+    sozinha depois de config.RETENCAO_ANALISES_DIAS, e junto com a conta.
+    """
+    __tablename__ = "analises"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(Integer, index=True)
+    antibiotico: Mapped[str] = mapped_column(String(160))
+    nome_antibiotico: Mapped[str] = mapped_column(String(80))
+    modelo: Mapped[str] = mapped_column(String(80))
+    n_genes: Mapped[int] = mapped_column(Integer, default=0)
+    classe: Mapped[str] = mapped_column(String(20))
+    probabilidade: Mapped[float] = mapped_column(Float)
+    resultado: Mapped[str] = mapped_column(Text, deferred=True)   # JSON da resposta
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                default=agora, index=True)
+
+    def publico(self) -> dict:
+        return {
+            "id": self.id, "antibiotico": self.antibiotico,
+            "nome_antibiotico": self.nome_antibiotico, "modelo": self.modelo,
+            "n_genes": self.n_genes, "classe": self.classe,
+            "probabilidade": self.probabilidade,
+            "criado_em": self.criado_em.isoformat() if self.criado_em else None,
         }
 
 

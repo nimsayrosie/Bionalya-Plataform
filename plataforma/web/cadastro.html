@@ -117,6 +117,18 @@
         </label>
       </div>
 
+      <div class="aceite">
+        <input type="checkbox" id="consentimento" name="consentimento" required>
+        <label for="consentimento">
+          <span id="texto-consentimento">Autorizo a Bionalya a guardar meu nome, e-mail,
+          instituição, vínculo e a finalidade que declarei, só para liberar e identificar
+          meu acesso, e o histórico das minhas análises por 90 dias. Sei que esses dados
+          ficam em servidores do Supabase, nos Estados Unidos, e que posso pedir para
+          apagar minha conta a qualquer momento.</span>
+          <span class="obrigatorio">*</span>
+        </label>
+      </div>
+
       <button class="botao" type="submit" style="width:100%;margin-top:1.5rem">
         Enviar solicitação
       </button>
@@ -149,6 +161,12 @@ document.addEventListener("DOMContentLoaded", function () {
   var f = document.getElementById("form-cadastro");
   var btn = f.querySelector("button[type=submit]");
 
+  // O texto do consentimento vem da API, o mesmo que fica registrado com a
+  // versão. O que está no HTML é só para a tela não abrir vazia.
+  Bio.api("/api/consentimento").then(function (c) {
+    document.getElementById("texto-consentimento").textContent = c.texto;
+  }).catch(function () {});
+
   f.addEventListener("submit", function (ev) {
     ev.preventDefault();
     Bio.aviso("#recado", null);
@@ -168,13 +186,16 @@ document.addEventListener("DOMContentLoaded", function () {
     var vinculo = f.querySelector("input[name=vinculo]:checked");
     if (!vinculo) return Bio.aviso("#recado", "Escolha o seu vínculo.");
     if (!f.termos.checked) return Bio.aviso("#recado", "É preciso aceitar os termos.");
+    if (!f.consentimento.checked) {
+      return Bio.aviso("#recado", "É preciso autorizar o uso dos seus dados para pedir acesso.");
+    }
 
     Bio.ocupado(btn, true, "Enviando…");
     Bio.api("/api/cadastro", { method: "POST", corpo: {
       nome: f.nome.value.trim(), email: f.email.value.trim(),
       instituicao: f.instituicao.value.trim(), vinculo: vinculo.value,
       finalidade: f.finalidade.value.trim(), senha: f.senha.value,
-      termos: true
+      termos: true, consentimento: true
     }}).then(function (r) {
       location.href = "acesso-pendente.html" + (r && r.email_confirmado ? "" :
         "?confirmar=" + encodeURIComponent(f.email.value.trim()));

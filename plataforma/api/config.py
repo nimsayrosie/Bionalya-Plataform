@@ -53,9 +53,9 @@ def url_banco() -> str:
 PASTA_DADOS = PROJETO / "dados"                    # bases CSV
 PASTA_ENVIADAS = PASTA_DADOS / "enviadas"          # as que alguém subiu pela plataforma
 
-# A base que vem de fábrica. O CSV completo (32 MB) não é versionado; a amostra
-# com os isolados que têm antibiograma é, para a plataforma funcionar logo depois
-# de clonar e nas hospedagens onde não dá para subir 32 MB.
+# A base que vem de fábrica. As duas estão no repositório: a completa (31 MB) e a
+# amostra com os isolados que têm antibiograma. A imagem Docker leva só a
+# amostra (ver .dockerignore), que é o que a hospedagem usa.
 BASE_PADRAO = "neisseria-gonorrhoeae"
 ARQUIVOS_BASE_PADRAO = (
     "neisseria-gonorrheae.csv",                 # completa, baixada do NCBI
@@ -83,6 +83,30 @@ MIN_LINHAS_BASE = 30
 # Quantas bases um pesquisador pode ter ao mesmo tempo, contando as que ainda
 # estão em análise. A equipe não tem limite. Sem isso, o disco acaba.
 MAX_BASES_POR_PESQUISADOR = 3
+
+# ---------------------------------------------------------------------------
+# Dados pessoais (LGPD). As regras estão em docs/requisitos-lgpd.md; se mudar
+# um número aqui, mude lá também.
+# ---------------------------------------------------------------------------
+# Quanto tempo o histórico de análises de cada pessoa fica guardado.
+RETENCAO_ANALISES_DIAS = 90
+# Conta desativada há mais que isso é apagada sozinha (login, cadastro,
+# histórico). As bases que a pessoa enviou ficam, sem dono.
+RETENCAO_CONTA_DESATIVADA_DIAS = 365
+# Texto do consentimento pedido no cadastro. A versão fica gravada junto.
+CONSENTIMENTO_VERSAO = "2026-11"
+CONSENTIMENTO = (
+    "Autorizo a Bionalya a guardar meu nome, e-mail, instituição, vínculo e a "
+    "finalidade que declarei, só para liberar e identificar meu acesso, e o "
+    "histórico das minhas análises por 90 dias. Sei que esses dados ficam em "
+    "servidores do Supabase, nos Estados Unidos, e que posso pedir para apagar "
+    "minha conta a qualquer momento."
+)
+
+# Envio do arquivo de um isolado na Nova análise: lido em memória, nunca
+# gravado. Limites para um arquivo de um isolado, não de uma base inteira.
+MAX_MB_ISOLADO = 5
+MAX_ISOLADOS_NO_ARQUIVO = 500
 
 # Termo que quem envia uma base precisa aceitar. A versão é guardada junto com
 # o aceite: se o texto mudar, dá para saber o que a pessoa leu de fato.

@@ -102,6 +102,25 @@
           <strong>·</strong> são os que mais pesam para este antibiótico.
         </p>
 
+        <div class="campo" style="margin-top:1.25rem">
+          <label for="arquivo-isolado">Ou envie o arquivo do isolado</label>
+          <input type="file" id="arquivo-isolado"
+                 accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+                 aria-describedby="ajuda-arquivo">
+          <span class="ajuda" id="ajuda-arquivo">
+            CSV do NCBI Pathogen Detection, saída do AMRFinderPlus ou uma lista de genes
+            separados por vírgula. Os genes são marcados sozinhos. O arquivo é lido e
+            descartado: nada fica guardado.
+          </span>
+        </div>
+
+        <div class="campo" id="campo-isolado" hidden>
+          <label for="isolado">Isolado do arquivo</label>
+          <select id="isolado"></select>
+        </div>
+
+        <div class="recado" id="recado-arquivo" hidden role="status"></div>
+
         <div class="campo busca-genes" style="margin-top:1.25rem">
           <label for="busca">Filtrar genes</label>
           <input type="search" id="busca" placeholder="ex.: gyrA" autocomplete="off">
@@ -151,6 +170,57 @@ document.addEventListener("DOMContentLoaded", function () {
   var form = document.getElementById("form-analise");
   var btn = document.getElementById("btn-analisar");
   var antibioticos = [];
+  var inArquivo = document.getElementById("arquivo-isolado");
+  var selIsolado = document.getElementById("isolado");
+  var campoIsolado = document.getElementById("campo-isolado");
+  var lidos = null;            // { formato, isolados: [{ id, rotulo, genes }] }
+
+  /* Marca na lista os genes do isolado escolhido no arquivo. Roda de novo
+     quando muda o antibiótico, porque cada modelo conhece genes diferentes. */
+  function aplicarArquivo() {
+    if (!lidos) return;
+    var iso = lidos.isolados[Number(selIsolado.value) || 0];
+    if (!iso) return;
+    var doArquivo = new Set(iso.genes);
+    var marcados = 0;
+    lista.querySelectorAll("input[name=gene]").forEach(function (inp) {
+      inp.checked = doArquivo.has(inp.value);
+      if (inp.checked) marcados++;
+    });
+    var fora = iso.genes.length - marcados;
+    Bio.aviso("#recado-arquivo",
+      iso.rotulo + " (" + lidos.formato + "): " + marcados + " gene(s) marcado(s)." +
+      (fora ? " " + fora + " gene(s) do arquivo não são usados pelo modelo deste " +
+              "antibiótico e foram ignorados." : "") +
+      (marcados ? "" : " Nenhum gene do arquivo é conhecido por este modelo."),
+      marcados ? "ok" : "info");
+  }
+
+  inArquivo.addEventListener("change", function () {
+    var arq = inArquivo.files[0];
+    if (!arq) return;
+    Bio.aviso("#recado-arquivo", "Lendo o arquivo…", "info");
+    var dados = new FormData();
+    dados.append("arquivo", arq);
+    Bio.api("/api/isolado/ler", { method: "POST", body: dados }).then(function (r) {
+      lidos = r;
+      selIsolado.innerHTML = "";
+      r.isolados.forEach(function (iso, i) {
+        var o = document.createElement("option");
+        o.value = i;
+        o.textContent = iso.rotulo + " — " + iso.genes.length + " genes";
+        selIsolado.appendChild(o);
+      });
+      campoIsolado.hidden = r.isolados.length < 2;
+      aplicarArquivo();
+    }).catch(function (e) {
+      lidos = null;
+      campoIsolado.hidden = true;
+      Bio.aviso("#recado-arquivo", e.message);
+    }).then(function () { inArquivo.value = ""; });
+  });
+
+  selIsolado.addEventListener("change", aplicarArquivo);
 
   function campo(nome, valor) {
     var el = ficha.querySelector('[data-f="' + nome + '"]');
@@ -218,6 +288,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         contagem.textContent = d.n_features + " genes conhecidos por este modelo.";
         filtrar();
+        aplicarArquivo();
       });
   }
 
